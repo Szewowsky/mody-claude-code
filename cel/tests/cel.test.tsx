@@ -10,6 +10,7 @@ function base(on: never) {
   o('command.register', () => ({ value: undefined }) as never)
   o('prompt.submit', ($: unknown, e: { text: string }) => ({ text: e.text }) as never)
   o('prompt.compose', () => ({ sections: [{ id: 'base', scope: 'session', text: 'x' }] }) as never)
+  o('turn.complete', ($: unknown, e: { answer: string }) => ({ text: e.answer }) as never)
   o('ui.render', ($: { ui: { resolve: (e: unknown) => { Box: unknown } } }, e: unknown) => h($.ui.resolve(e).Box as never, {}) as never)
   return clock
 }
@@ -93,4 +94,36 @@ test('/goal ustawia cel sam, zadania Claude\'a liczą się do postępu, /goal cl
 
   await $.tool.call({ tool: 'ProposeGoal', condition: 'README gotowe' } as never)
   expect((await $.command.run({ command: 'cel', args: '' } as never)).text).toMatch(/README gotowe/)
+})
+
+test('wiersz "teraz": plan, zadanie w toku, ostatnie narzędzie, bezczynność', async ($, on) => {
+  base(on as never)
+  const o = on as (...a: unknown[]) => void
+  o('command.run', () => ({ value: { text: '' } }) as never)
+  o('tool.call', ($: unknown, e: { tool: string }) =>
+    (e.tool === 'TaskCreate' ? { result: { task: { id: '1', subject: 'x' } }, text: 'ok' } : { result: 'ok', text: 'ok' }) as never)
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true } as never)
+  await $.command.run({ command: 'goal', args: 'README gotowe' } as never)
+  const mount = () => $.ui.mount({ plugin: 'cel', surface: 'terminal', component: 'AbovePrompt', props } as never)
+  let ui = await mount()
+  expect(await ui.find({ type: 'Text', text: /bezczynny, bez planu/ } as never)).toBeDefined()
+  await ui.unmount()
+  await $.prompt.submit({ text: 'jedziemy' } as never)
+  ui = await mount()
+  expect(await ui.find({ type: 'Text', text: /czeka na plan zadań/ } as never)).toBeDefined()
+  await ui.unmount()
+  await $.tool.call({ tool: 'Bash', command: 'npm test', description: 'Uruchamia testy' } as never)
+  ui = await mount()
+  expect(await ui.find({ type: 'Text', text: /▶ Bash: Uruchamia testy/ } as never)).toBeDefined()
+  await ui.unmount()
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Napisać README', description: '' } as never)
+  await $.tool.call({ tool: 'TaskUpdate', task_id: '1', status: 'in_progress' } as never)
+  ui = await mount()
+  expect(await ui.find({ type: 'Text', text: /▶ Napisać README/ } as never)).toBeDefined()
+  await ui.unmount()
+  await $.tool.call({ tool: 'TaskUpdate', task_id: '1', status: 'completed' } as never)
+  await $.turn.complete({ answer: 'gotowe', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+  ui = await mount()
+  expect(await ui.find({ type: 'Text', text: /wszystkie zadania odhaczone/ } as never)).toBeDefined()
+  await ui.unmount()
 })

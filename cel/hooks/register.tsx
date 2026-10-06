@@ -21,8 +21,34 @@ function progress(tasks: Task[]) {
 
 async function setGoal($: EngineInterface, text: string, source: Goal['source']) {
   const now = await $.clock.now()
-  const next: Goal = { text, since: now, prompts: 0, source, tasks: [] }
+  const next: Goal = { text, since: now, prompts: 0, source, tasks: [], now: null, isWorking: false }
   await update($, goal, () => next)
+}
+
+// krótka etykieta tego, co Claude właśnie woła: narzędzie + najważniejszy argument
+function label(e: { tool: string } & Record<string, unknown>) {
+  const cut = (v: unknown, n = 60) => (typeof v === 'string' ? (v.length > n ? v.slice(0, n - 1) + '…' : v) : '')
+  const base = (v: unknown) => cut(typeof v === 'string' ? v.split('/').pop() : '', 40)
+  switch (e.tool) {
+    case 'Bash': return `Bash: ${cut(e.description ?? e.command)}`
+    case 'Edit': case 'Write': case 'Read': case 'NotebookEdit': return `${e.tool}: ${base(e.file_path)}`
+    case 'Grep': case 'Glob': return `${e.tool}: ${cut(e.pattern, 40)}`
+    case 'Agent': return `Agent: ${cut(e.description)}`
+    case 'WebFetch': return `WebFetch: ${cut(e.url, 50)}`
+    case 'WebSearch': return `WebSearch: ${cut(e.query, 50)}`
+    case 'TaskCreate': return `zadanie: ${cut(e.subject, 50)}`
+    default: return e.tool.replace(/^mcp__[^_]+__/, 'MCP: ')
+  }
+}
+
+// co pokazać w wierszu "teraz": zadanie w toku, inaczej ostatnie narzędzie, inaczej czekanie na plan
+function nowLine(g: Goal) {
+  const active = g.tasks.find(t => t.status === 'in_progress')
+  if (active) return { text: `▶ ${active.subject}`, color: 'yellow' as const }
+  if (g.isWorking && g.now) return { text: `▶ ${g.now}`, color: 'yellow' as const }
+  if (g.tasks.length === 0) return { text: g.isWorking ? '… czeka na plan zadań' : '… bezczynny, bez planu zadań', color: undefined }
+  const p = progress(g.tasks)
+  return { text: p.done === p.total ? '✔ wszystkie zadania odhaczone' : `… bezczynny, ${p.done}/${p.total} zadań`, color: p.done === p.total ? ('green' as const) : undefined }
 }
 
 function summary(g: Goal, now: number) {
@@ -97,9 +123,20 @@ export const register: Register = on => {
     return r
   })
 
+  // każde wywołanie narzędzia w trakcie celu to "teraz" na pasku (tylko główna sesja, nie sub-agenci)
+  on('tool.call', async ($, e, next) => {
+    if (e.agentId === undefined) await update($, goal, g => (g ? { ...g, now: label(e as never), isWorking: true } : g))
+    return next(e)
+  })
+
   // każdy prompt to +1, żeby na pasku było widać, ile już poszło w ten cel
   on('prompt.submit', async ($, e, next) => {
-    await update($, goal, g => (g ? { ...g, prompts: g.prompts + 1 } : g))
+    await update($, goal, g => (g ? { ...g, prompts: g.prompts + 1, isWorking: true } : g))
+    return next(e)
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId === undefined) await update($, goal, g => (g ? { ...g, isWorking: false, now: null } : g))
     return next(e)
   })
 
@@ -143,6 +180,9 @@ export const register: Register = on => {
           ) : (
             <Text dimColor>/cel ok</Text>
           )}
+        </Box>
+        <Box paddingLeft={3}>
+          <Text color={nowLine(g).color} dimColor={nowLine(g).color === undefined}>{nowLine(g).text}</Text>
         </Box>
         {below}
       </Box>
