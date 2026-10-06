@@ -1,7 +1,7 @@
 {
   "name": "cel",
   "version": "1.0.0",
-  "description": "/cel <tekst> przypina cel sesji nad promptem, żeby nie zgubić go po godzinie pracy; /cel ok zdejmuje. Claude też go widzi w systemowym prompcie",
+  "description": "Cel sesji nad promptem: /cel <tekst> albo wbudowane /goal ustawia, pasek pokazuje czas, prompty i postęp zadań Claude'a; /cel ok lub /goal clear zdejmuje",
   "types": "./types/index.d.ts",
   "license": "MIT",
   "author": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },

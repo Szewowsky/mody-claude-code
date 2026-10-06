@@ -58,3 +58,39 @@ test('Claude dostaje cel jako sekcję systemowego promptu, tylko gdy cel jest', 
   expect(r.sections.map(s => s.id)).toEqual(['base', 'cel'])
   expect(r.sections[1]!.text).toMatch(/opisać film/)
 })
+
+test('/goal ustawia cel sam, zadania Claude\'a liczą się do postępu, /goal clear zdejmuje', async ($, on) => {
+  base(on as never)
+  const o = on as (...a: unknown[]) => void
+  let nextId = 1
+  o('command.run', () => ({ value: { text: '' } }) as never)
+  o('tool.call', ($: unknown, e: { tool: string; condition?: string }) => {
+    if (e.tool === 'TaskCreate') return { result: { task: { id: String(nextId++), subject: 'x' } }, text: 'ok' } as never
+    if (e.tool === 'TaskUpdate') return { result: { success: true }, text: 'ok' } as never
+    if (e.tool === 'ProposeGoal') return { result: { condition: e.condition, askUser: true }, text: 'ok' } as never
+    return { result: 'ok', text: 'ok' } as never
+  })
+  await $.session.start({ cwd: '/x', surface: 'desktop', isInteractive: true } as never)
+
+  await $.command.run({ command: 'goal', args: 'testy przechodzą (bun test exit 0)' } as never)
+  expect((await $.command.run({ command: 'cel', args: '' } as never)).text).toMatch(/testy przechodzą/)
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Napisać test', description: '' } as never)
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Naprawić kod', description: '' } as never)
+  await $.tool.call({ tool: 'TaskUpdate', task_id: '1', status: 'completed' } as never)
+  expect((await $.command.run({ command: 'cel', args: 'lista' } as never)).text).toBe('Cel: testy przechodzą (bun test exit 0)\n[x] Napisać test\n[ ] Naprawić kod')
+
+  const ui = await $.ui.mount({ plugin: 'cel', surface: 'desktop', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /Goal:/ } as never)).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /1\/2/ } as never)).toBeDefined()
+  await ui.unmount()
+
+  // cel z /goal nie dubluje sekcji w prompcie: silnik sam go pilnuje
+  const r = (await $.prompt.compose(COMPOSE as never)) as { sections: { id: string }[] }
+  expect(r.sections.map(s => s.id)).toEqual(['base'])
+
+  await $.command.run({ command: 'goal', args: 'clear' } as never)
+  expect((await $.command.run({ command: 'cel', args: '' } as never)).text).toMatch(/Brak celu/)
+
+  await $.tool.call({ tool: 'ProposeGoal', condition: 'README gotowe' } as never)
+  expect((await $.command.run({ command: 'cel', args: '' } as never)).text).toMatch(/README gotowe/)
+})

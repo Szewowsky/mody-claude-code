@@ -12,7 +12,7 @@ Film, w którym to wszystko pokazuję i buduję na żywo: [NOWOŚĆ w Claude Cod
 | [record-mode](#record-mode) | [`record-mode/`](record-mode/) | `/record on` | Zasłania na ekranie maile, klucze API, kwoty i ścieżki domowe; model dalej widzi prawdziwy tekst |
 | [wytlumacz-mi](#wytlumacz-mi) | [`wytlumacz-mi/`](wytlumacz-mi/) | `/wytlumacz` | Tłumaczy po polsku, co Claude właśnie zrobił, i streszcza rozmowę po powrocie do sesji |
 | [bezpiecznik](#bezpiecznik) | [`bezpiecznik/`](bezpiecznik/) | `/bezpiecznik` | `rm -rf`, `git push --force`, `DROP`, `curl \| sh` zatrzymują się i czekają na Twoje potwierdzenie |
-| [cel](#cel) | [`cel/`](cel/) | `/cel` | Przypina cel sesji nad promptem, żeby nie zgubić go po godzinie pracy |
+| [cel](#cel) | [`cel/`](cel/) | `/cel`, `/goal` | Cel sesji nad promptem z czasem, promptami i postępem zadań; `/goal` ustawia go sam |
 | [tetris](#tetris) | [`tetris/`](tetris/) | `/tetris` | Tetris w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami |
 
 ## Instalacja
@@ -55,7 +55,7 @@ claude plugin test ~/mody-claude-code/pasek
 
 [Kod](./pasek) · [hooks/register.tsx](./pasek/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/pasek`
 
-![pasek](screenshots/pasek.png)
+<!-- zrzut: screenshots/pasek.png (do zrobienia po nagraniu) -->
 
 Dwa wiersze nad promptem: repo i branch, czas sesji, liczba promptów, koszt, ostatnia tura (czas, model, % trafień w cache), odliczanie ciepłego cache (zielony → żółty → czerwony), wskaźniki kontekstu oraz limitu 5h i tygodniowego z czasem do resetu.
 
@@ -70,7 +70,7 @@ Pasek działa sam. `record-mode` i `wytlumacz-mi` tylko dokładają do niego swo
 
 [Kod](./record-mode) · [hooks/register.tsx](./record-mode/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/record-mode`
 
-![record-mode](screenshots/record-mode.png)
+<!-- zrzut: screenshots/record-mode.png (do zrobienia po nagraniu) -->
 
 `/record on` maskuje na ekranie adresy e-mail, klucze API i tokeny, kwoty w dolarach i złotówkach oraz ścieżki `/Users/twoja-nazwa` (zamienia na `~`). Dotyczy wiadomości, wyników narzędzi i wyjścia komend. `/record off` wyłącza. Stan trzyma się między sesjami.
 
@@ -80,7 +80,7 @@ Uczciwie: to maska na **ekranie**, nie w danych. Model dalej widzi prawdziwy tek
 
 [Kod](./wytlumacz-mi) · [hooks/register.tsx](./wytlumacz-mi/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/wytlumacz-mi`
 
-![wytlumacz-mi](screenshots/wytlumacz-mi.png)
+<!-- zrzut: screenshots/wytlumacz-mi.png (do zrobienia po nagraniu) -->
 
 Dwa tryby, oba otwierają panel obok rozmowy:
 
@@ -97,7 +97,7 @@ Na bazie [Explain It](https://github.com/ruthannbravo/explain-it) Ruth-Ann Bravo
 
 [Kod](./bezpiecznik) · [hooks/register.tsx](./bezpiecznik/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/bezpiecznik`
 
-![bezpiecznik](screenshots/bezpiecznik.png)
+<!-- zrzut: screenshots/bezpiecznik.png (do zrobienia po nagraniu) -->
 
 Zakłada hook na każde wywołanie Bash i klasyfikuje komendę, zanim ruszy. Trafienie otwiera dialog z dwiema opcjami: **Zablokuj** (domyślna) albo **Uruchom**. Zablokowana komenda wraca do Claude'a z wyjaśnieniem i zakazem obchodzenia blokady.
 
@@ -118,17 +118,19 @@ Rozbiór komend (cudzysłowy, `sudo`, `npx`, potoki, heredoc) wzięty z [launch-
 
 [Kod](./cel) · [hooks/register.tsx](./cel/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/cel`
 
-![cel](screenshots/cel.png)
+<!-- zrzut: screenshots/cel.png (do zrobienia po nagraniu) -->
 
-`/cel wypuścić paczkę modów` przypina cel nad promptem razem z czasem od ustawienia i liczbą promptów. W aplikacji przycisk [Zrobione] go zdejmuje, w terminalu `/cel ok`. Samo `/cel` pokazuje stan.
+`/cel wypuścić paczkę modów` przypina cel nad promptem razem z czasem od ustawienia i liczbą promptów. W aplikacji przycisk [Zrobione] (klawisz `z`) go zdejmuje, w terminalu `/cel ok`. Samo `/cel` pokazuje stan.
 
-Claude też widzi cel: mod dokłada go jako sekcję systemowego promptu na czas sesji, więc gdy rozmowa odpływa od tematu, Claude ma to zaznaczyć jednym zdaniem.
+Działa też z wbudowanym `/goal`: `/goal testy przechodzą` ustawia cel sam (na pasku jako „Goal:”), `/goal clear` go zdejmuje, a cel zaproponowany przez Claude'a (narzędzie ProposeGoal) ląduje na pasku po Twojej zgodzie. Gdy Claude w trakcie celu zakłada zadania (TaskCreate), pasek pokazuje postęp `▰▰▰▱▱▱ 3/6`, a `/cel lista` wypisuje je z odhaczeniem. Kiedy odpalasz kilka `/goal` naraz i gubisz, który jak daleko zaszedł, to jest ten mod.
+
+Claude też widzi cel z `/cel`: mod dokłada go jako sekcję systemowego promptu na czas sesji, więc gdy rozmowa odpływa od tematu, Claude ma to zaznaczyć jednym zdaniem. Cel z `/goal` silnik pilnuje sam, więc tam sekcja nie jest dokładana.
 
 ### tetris
 
 [Kod](./tetris) · [hooks/register.tsx](./tetris/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/tetris`
 
-![tetris](screenshots/tetris.png)
+<!-- zrzut: screenshots/tetris.png (do zrobienia po nagraniu) -->
 
 `/tetris` otwiera panel z Tetrisem obok rozmowy. Sterowanie klawiszami `a` `d` (ruch), `w` (obrót), `s` (w dół), `x` (zrzut), `p` (pauza) albo przyciskami w panelu. Gdy Claude kończy turę, gra sama się pauzuje, żebyś wrócił do pracy. Rekord trzyma się między sesjami. Zupełnie bezużyteczne i o to chodzi.
 
@@ -148,7 +150,7 @@ Nie łącz obu sposobów dla tego samego modu, bo załaduje się dwa razy.
 
 ## Zbuduj własny mod i podrzuć
 
-Każdy mod to trzy pliki: `.claude-plugin/plugin.json`, `hooks/hooks.json` i `hooks/register.tsx`. Zajrzyj do [`cel/`](cel/), to najkrótszy w tym repo (88 linii kodu + 60 linii testów), i zacznij od niego.
+Każdy mod to trzy pliki: `.claude-plugin/plugin.json`, `hooks/hooks.json` i `hooks/register.tsx`. Zajrzyj do [`cel/`](cel/), to jeden z krótszych w tym repo, i zacznij od niego.
 
 Masz swój mod? Otwórz pull request albo pochwal się w [Operatorach AI](https://swiy.co/operatorzyaiyt). Warunki przyjęcia: po polsku, `claude plugin validate` i `claude plugin test` na zielono, bez wysyłania danych poza komputer użytkownika bez wyraźnej informacji w opisie. Najlepsze trafiają do paczki i do kolejnego filmu.
 
