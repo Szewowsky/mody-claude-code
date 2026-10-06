@@ -2,9 +2,13 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Goal, Task } from '../types'
+import { observeRow } from './rows'
 
 // cel żyje w $.state (sesja), nie w zmiennej modułu: hot reload kasuje zmienne, stan zostaje
 const goal = atom({ plugin: 'cel', key: 'goal' } as const, null)
+// ostatnie komunikaty silnika ze słowem goal: do strojenia wykrywania końca celu (/cel debug)
+const notices = atom({ plugin: 'cel', key: 'notices' } as const, [] as string[])
+
 
 const DONE = new Set(['ok', 'done', 'zrobione', 'gotowe', 'koniec', 'off', 'clear'])
 const BAR = 6
@@ -21,7 +25,7 @@ function progress(tasks: Task[]) {
 
 async function setGoal($: EngineInterface, text: string, source: Goal['source']) {
   const now = await $.clock.now()
-  const next: Goal = { text, since: now, prompts: 0, source, tasks: [], now: null, isWorking: false }
+  const next: Goal = { text, since: now, prompts: 0, source, tasks: [], now: null, stage: null, isWorking: false }
   await update($, goal, () => next)
 }
 
@@ -72,6 +76,10 @@ export const register: Register = on => {
     const now = await $.clock.now()
     const current = await read($, goal)
     if (arg === '') return { text: current ? `Cel: ${summary(current, now)}` : 'Brak celu. Ustaw: /cel <tekst> albo /goal <warunek>' }
+    if (arg === 'debug') {
+      const n = await read($, notices)
+      return { text: n.length ? ['Ostatnie komunikaty silnika o celu:', ...n.map(x => `- ${x}`)].join('\n') : 'Silnik nie pokazał jeszcze komunikatu ze słowem goal.' }
+    }
     if (arg === 'lista') {
       if (!current) return { text: 'Brak celu.' }
       if (!current.tasks.length) return { text: `Cel: ${current.text}. Claude nie założył jeszcze zadań.` }
@@ -159,6 +167,16 @@ export const register: Register = on => {
     }
   })
 
+  // silnik ogłasza spełnienie celu notatką (wiersz systemowy) w transkrypcie: wtedy cel z /goal schodzi z paska sam
+  // (render jest czysty, więc nasłuch idzie na session.append, gdzie wolno pisać do stanu)
+  on('session.append', async ($, e, next) => {
+    const v = observeRow(e as never)
+    if (v.stage) await update($, goal, g => (g ? { ...g, stage: v.stage } : g))
+    if (v.notice) await update($, notices, n => [...n.slice(-9), v.notice!])
+    if (v.isGoalOver) await update($, goal, g => (g && g.source === 'goal' ? null : g))
+    return next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const g = await read($, goal)
     if (!g || e.props.hasSurvey) return next(e)
@@ -181,6 +199,11 @@ export const register: Register = on => {
             <Text dimColor>/cel ok</Text>
           )}
         </Box>
+        {g.stage && (
+          <Box paddingLeft={3}>
+            <Text>Etap: {g.stage}</Text>
+          </Box>
+        )}
         <Box paddingLeft={3}>
           <Text color={nowLine(g).color} dimColor={nowLine(g).color === undefined}>{nowLine(g).text}</Text>
         </Box>

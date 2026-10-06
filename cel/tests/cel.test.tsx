@@ -1,5 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
+import { observeRow } from '../hooks/rows'
+
 const COMPOSE = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['desktop'], tools: ['Bash'], outputStyle: null, traits: [] }
 const props = { hasSurvey: false, isWorking: false, maxRows: 20, bodyColumns: 120 }
 
@@ -126,4 +128,19 @@ test('wiersz "teraz": plan, zadanie w toku, ostatnie narzędzie, bezczynność',
   ui = await mount()
   expect(await ui.find({ type: 'Text', text: /wszystkie zadania odhaczone/ } as never)).toBeDefined()
   await ui.unmount()
+})
+
+test('wiersze transkryptu: etap z odpowiedzi Claude\'a, komunikaty o celu, koniec celu', () => {
+  const asst = (text: string) => ({ door: 'response', message: { type: 'assistant', content: [{ type: 'text', text }] } })
+  const notice = (text: string) => ({ door: 'notice', message: { type: 'system', content: [{ type: 'text', text }] } })
+  expect(observeRow(asst('**Dokładam** sekcję instalacji do README. Potem testy.')).stage).toBe('Dokładam sekcję instalacji do README.')
+  expect(observeRow(asst('```ts\nconst x = 1\n```\nGotowe: plik zapisany')).stage).toBe('Gotowe:')
+  expect(observeRow(asst('a'.repeat(120))).stage!.length).toBe(90)
+  expect(observeRow({ ...asst('Sub-agent mówi.'), agentId: 'sub' }).stage).toBeNull()
+  expect(observeRow(notice('Goal set: README gotowe'))).toEqual({ stage: null, notice: 'Goal set: README gotowe', isGoalOver: false })
+  expect(observeRow(notice('Goal met: README gotowe')).isGoalOver).toBe(true)
+  expect(observeRow(notice('Goal cleared')).isGoalOver).toBe(true)
+  expect(observeRow(notice('Cel został spełniony')).isGoalOver).toBe(true)
+  expect(observeRow(notice('Reloaded: 19 plugins')).notice).toBeNull()
+  expect(observeRow({ door: 'tool-result', message: { type: 'user', content: 'goal met' } }).notice).toBeNull()
 })
