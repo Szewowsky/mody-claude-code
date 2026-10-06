@@ -1,0 +1,10 @@
+{
+  "name": "record-mode",
+  "version": "1.0.0",
+  "description": "/record on zasłania na ekranie maile, klucze API, kwoty i ścieżki domowe; model dalej widzi prawdziwy tekst",
+  "types": "./types/index.d.ts",
+  "license": "MIT",
+  "author": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },
+  "homepage": "https://github.com/Szewowsky/mody-claude-code/tree/main/record-mode",
+  "repository": "https://github.com/Szewowsky/mody-claude-code"
+}

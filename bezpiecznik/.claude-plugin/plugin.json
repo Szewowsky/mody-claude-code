@@ -1,0 +1,9 @@
+{
+  "name": "bezpiecznik",
+  "version": "1.0.0",
+  "description": "Groźne komendy Bash (rm -rf, git push --force, reset --hard, DROP/TRUNCATE, curl | sh, chmod 777) zatrzymują się i czekają na Twoje potwierdzenie. /bezpiecznik test <komenda> pokazuje werdykt bez uruchamiania",
+  "license": "MIT",
+  "author": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },
+  "homepage": "https://github.com/Szewowsky/mody-claude-code/tree/main/bezpiecznik",
+  "repository": "https://github.com/Szewowsky/mody-claude-code"
+}

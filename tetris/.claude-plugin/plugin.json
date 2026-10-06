@@ -1,0 +1,10 @@
+{
+  "name": "tetris",
+  "version": "1.0.0",
+  "description": "/tetris otwiera Tetrisa w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami",
+  "types": "./types/index.d.ts",
+  "license": "MIT",
+  "author": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },
+  "homepage": "https://github.com/Szewowsky/mody-claude-code/tree/main/tetris",
+  "repository": "https://github.com/Szewowsky/mody-claude-code"
+}

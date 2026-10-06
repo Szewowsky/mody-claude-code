@@ -1,0 +1,10 @@
+{
+  "name": "wytlumacz-mi",
+  "version": "1.0.0",
+  "description": "Tłumaczy po polsku, co Claude właśnie zrobił (krótko, od konkretu, z jednym „dlaczego”), i streszcza rozmowę po powrocie do sesji. Każde kliknięcie to zapytanie do modelu. Na bazie Explain It (MIT)",
+  "types": "./types/index.d.ts",
+  "license": "MIT",
+  "author": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },
+  "homepage": "https://github.com/Szewowsky/mody-claude-code/tree/main/wytlumacz-mi",
+  "repository": "https://github.com/Szewowsky/mody-claude-code"
+}

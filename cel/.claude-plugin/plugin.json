@@ -1,0 +1,10 @@
+{
+  "name": "cel",
+  "version": "1.0.0",
+  "description": "/cel <tekst> przypina cel sesji nad promptem, żeby nie zgubić go po godzinie pracy; /cel ok zdejmuje. Claude też go widzi w systemowym prompcie",
+  "types": "./types/index.d.ts",
+  "license": "MIT",
+  "author": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },
+  "homepage": "https://github.com/Szewowsky/mody-claude-code/tree/main/cel",
+  "repository": "https://github.com/Szewowsky/mody-claude-code"
+}

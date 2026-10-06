@@ -1,0 +1,13 @@
+{
+  "name": "mody-claude-code",
+  "description": "Mody do Claude Code od Roberta Szewczyka i społeczności Operatorzy AI: pasek zużycia, tryb nagrywania, Wytłumacz mi, bezpiecznik, cel sesji, Tetris",
+  "owner": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },
+  "plugins": [
+    { "name": "pasek", "source": "./pasek", "description": "Pasek nad promptem: koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff" },
+    { "name": "record-mode", "source": "./record-mode", "description": "/record on zasłania na ekranie maile, klucze, kwoty i ścieżki domowe; model dalej widzi prawdziwy tekst" },
+    { "name": "wytlumacz-mi", "source": "./wytlumacz-mi", "description": "Tłumaczy po polsku, co Claude właśnie zrobił, i streszcza rozmowę po powrocie do sesji" },
+    { "name": "bezpiecznik", "source": "./bezpiecznik", "description": "Groźne komendy Bash (rm -rf, push --force, DROP, curl | sh) czekają na Twoje potwierdzenie" },
+    { "name": "cel", "source": "./cel", "description": "/cel przypina cel sesji nad promptem, żeby nie zgubić go po godzinie pracy" },
+    { "name": "tetris", "source": "./tetris", "description": "/tetris otwiera Tetrisa w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami" }
+  ]
+}
