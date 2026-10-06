@@ -19,7 +19,7 @@ const status = atom({ plugin: 'wytlumacz-mi', key: 'status' } as const, { kind: 
 const saved = atom({ plugin: 'wytlumacz-mi', key: 'saved' } as const, [])
 const viewing = atom({ plugin: 'wytlumacz-mi', key: 'viewing' } as const, 0)
 const hasRecap = atom({ plugin: 'wytlumacz-mi', key: 'hasRecap' } as const, false)
-// upanel przy Podsumuj miał nagłówek i komunikat Wytłumacz mi - teraz każdy tryb ma swój
+// panel przy Podsumuj miał nagłówek i komunikat Wytłumacz mi - teraz każdy tryb ma swój
 const mode = atom({ plugin: 'wytlumacz-mi', key: 'mode' } as const, 'now')
 // pytanie "co wyczyścić?" w panelu, zanim cokolwiek zniknie
 const confirmClear = atom({ plugin: 'wytlumacz-mi', key: 'confirmClear' } as const, false)

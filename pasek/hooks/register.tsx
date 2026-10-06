@@ -137,7 +137,7 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'pasek' }, async ($, e) => {
-    // uterminal buttons need ctrl+x tab first, so there Handoff is a command
+    // terminal buttons need ctrl+x tab first, so there Handoff is a command
     if (e.args.trim() === 'handoff') {
       const handoff = handoffCommand(await $.command.list().catch(() => []))
       if (!handoff) return { text: 'Brak skilla handoff w tej sesji (szukam /pasek:handoff albo /handoff).' }
@@ -201,7 +201,7 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    // uthe band shows on every surface (terminal, desktop, IDE), in every project
+    // the band shows on every surface (terminal, desktop, IDE), in every project
     if (e.props.hasSurvey) return next(e)
     // what the mods and the engine beneath draw stays under the band instead of being replaced
     const below = await next(e)
@@ -247,7 +247,7 @@ export const register: Register = on => {
         {tail && <Text dimColor>{` ${tail}`}</Text>}
       </Text>
     )
-    // uthe cache countdown gets a draining bar (▰▱, apart from the █░ gauges)
+    // the cache countdown gets a draining bar (▰▱, apart from the █░ gauges)
     const cacheLine = (at: number | null, t: number) => {
       if (at === null) return <Text dimColor>cache -</Text>
       const left = at + CACHE_TTL - t
@@ -291,7 +291,7 @@ export const register: Register = on => {
       </Box>
     )
 
-    // uterminal and IDE have their own status line (repo, cost, ctx), so there the band
+    // terminal and IDE have their own status line (repo, cost, ctx), so there the band
     // shrinks to one row; buttons there need ctrl+x tab before a press, so commands stand in for them
     if (e.surface === 'terminal' || e.surface === 'vscode') {
       const pct = Math.round(u.percent ?? 0)
