@@ -1,6 +1,6 @@
 # Mody do Claude Code
 
-Sześć modów do Claude Code po polsku, od Roberta Szewczyka i społeczności [Operatorzy AI](https://swiy.co/operatorzyaiyt). Wszystkie na licencji MIT: instaluj, przerabiaj, wysyłaj swoje.
+Cztery mody do Claude Code po polsku, od Roberta Szewczyka i społeczności [Operatorzy AI](https://swiy.co/operatorzyaiyt). Wszystkie na licencji MIT: instaluj, przerabiaj, wysyłaj swoje.
 
 Mod to plugin Claude Code zbudowany z funkcji-hooków. Potrafi rysować pasek nad promptem, panel obok rozmowy, toast albo linię statusu. Potrafi też zatrzymać, przepisać albo zareagować na wywołanie narzędzia, dodać komendę `/slash` i zapytać model. Mody przeładowują się na żywo, gdy je edytujesz.
 
@@ -11,8 +11,6 @@ Film, w którym to wszystko pokazuję i buduję na żywo: [NOWOŚĆ w Claude Cod
 | [pasek](#pasek) | [`pasek/`](pasek/) | `/pasek` | Pasek nad promptem: koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff |
 | [record-mode](#record-mode) | [`record-mode/`](record-mode/) | `/record on` | Zasłania na ekranie maile, klucze API, kwoty i ścieżki domowe; model dalej widzi prawdziwy tekst |
 | [wytlumacz-mi](#wytlumacz-mi) | [`wytlumacz-mi/`](wytlumacz-mi/) | `/wytlumacz` | Tłumaczy po polsku, co Claude właśnie zrobił, i streszcza rozmowę po powrocie do sesji |
-| [bezpiecznik](#bezpiecznik) | [`bezpiecznik/`](bezpiecznik/) | `/bezpiecznik` | `rm -rf`, `git push --force`, `DROP`, `curl \| sh` zatrzymują się i czekają na Twoje potwierdzenie |
-| [cel](#cel) | [`cel/`](cel/) | `/cel`, `/goal` | Cel sesji nad promptem z czasem, promptami i postępem zadań; `/goal` ustawia go sam |
 | [tetris](#tetris) | [`tetris/`](tetris/) | `/tetris` | Tetris w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami |
 
 ## Instalacja
@@ -93,39 +91,6 @@ Historia wyjaśnień zapisuje się per projekt; `/wytlumacz wyczysc wszystko` j�
 
 Na bazie [Explain It](https://github.com/ruthannbravo/explain-it) Ruth-Ann Bravo (MIT), przepisane po polsku i pod styl „na temat”.
 
-### bezpiecznik
-
-[Kod](./bezpiecznik) · [hooks/register.tsx](./bezpiecznik/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/bezpiecznik`
-
-<!-- zrzut: screenshots/bezpiecznik.png (do zrobienia po nagraniu) -->
-
-Zakłada hook na każde wywołanie Bash i klasyfikuje komendę, zanim ruszy. Trafienie otwiera dialog z dwiema opcjami: **Zablokuj** (domyślna) albo **Uruchom**. Zablokowana komenda wraca do Claude'a z wyjaśnieniem i zakazem obchodzenia blokady.
-
-Zatrzymuje:
-
-- `rm -rf` poza `node_modules`, `dist`, `build`, `.cache`, `coverage` i katalogami tymczasowymi
-- `git push --force` / `-f` / `+branch`, `git reset --hard`, `git clean -f`, `git branch -D`
-- `DROP` / `TRUNCATE` przez `psql`, `mysql`, `sqlite3` i inne klienty SQL; `supabase db reset`
-- `vercel --prod`
-- `chmod -R 777`
-- `curl | sh`, `wget | bash`, `sh -c "$(curl ...)"`, `bash <(curl ...)`
-
-`/bezpiecznik test <komenda>` pokazuje werdykt bez uruchamiania. `/bezpiecznik demo` odpala dialog na sucho. `/bezpiecznik` wypisuje reguły.
-
-Rozbiór komend (cudzysłowy, `sudo`, `npx`, potoki, heredoc) wzięty z [launch-codes](https://github.com/OneWave-AI/claude-code-mods/tree/main/launch-codes) OneWave AI (MIT). Tam dostajesz syrenę i kod startowy; tu jedno pytanie po polsku.
-
-### cel
-
-[Kod](./cel) · [hooks/register.tsx](./cel/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/cel`
-
-<!-- zrzut: screenshots/cel.png (do zrobienia po nagraniu) -->
-
-`/cel wypuścić paczkę modów` przypina cel nad promptem razem z czasem od ustawienia i liczbą promptów. W aplikacji przycisk [Zrobione] (klawisz `z`) go zdejmuje, w terminalu `/cel ok`. Samo `/cel` pokazuje stan.
-
-Działa też z wbudowanym `/goal`: `/goal testy przechodzą` ustawia cel sam (na pasku jako „Goal:”), `/goal clear` go zdejmuje, a cel zaproponowany przez Claude'a (narzędzie ProposeGoal) ląduje na pasku po Twojej zgodzie. Gdy Claude w trakcie celu zakłada zadania (TaskCreate), pasek pokazuje postęp `▰▰▰▱▱▱ 3/6`, a `/cel lista` wypisuje je z odhaczeniem. Kiedy odpalasz kilka `/goal` naraz i gubisz, który jak daleko zaszedł, to jest ten mod.
-
-Claude też widzi cel z `/cel`: mod dokłada go jako sekcję systemowego promptu na czas sesji, więc gdy rozmowa odpływa od tematu, Claude ma to zaznaczyć jednym zdaniem. Cel z `/goal` silnik pilnuje sam, więc tam sekcja nie jest dokładana.
-
 ### tetris
 
 [Kod](./tetris) · [hooks/register.tsx](./tetris/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/tetris`
@@ -141,16 +106,20 @@ W aplikacji nie ma flagi `--plugin-dir`, więc albo instalujesz przez marketplac
 ```json
 {
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/mody-claude-code/pasek:~/mody-claude-code/bezpiecznik"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/mody-claude-code/pasek:~/mody-claude-code/record-mode"
   }
 }
 ```
 
 Nie łącz obu sposobów dla tego samego modu, bo załaduje się dwa razy.
 
+## W przygotowaniu
+
+Na gałęzi [`dev`](https://github.com/Szewowsky/mody-claude-code/tree/dev) dojrzewają dwa kolejne mody: **bezpiecznik** (groźne komendy Bash czekają na potwierdzenie) i **cel** (cel sesji i postęp `/goal` nad promptem). Trafią na `main`, gdy przejdą testy na żywo.
+
 ## Zbuduj własny mod i podrzuć
 
-Każdy mod to trzy pliki: `.claude-plugin/plugin.json`, `hooks/hooks.json` i `hooks/register.tsx`. Zajrzyj do [`cel/`](cel/), to jeden z krótszych w tym repo, i zacznij od niego.
+Każdy mod to trzy pliki: `.claude-plugin/plugin.json`, `hooks/hooks.json` i `hooks/register.tsx`. Zajrzyj do [`record-mode/`](record-mode/), to najkrótszy w tym repo (ok. 50 linii), i zacznij od niego.
 
 Masz swój mod? Otwórz pull request albo pochwal się w [Operatorach AI](https://swiy.co/operatorzyaiyt). Warunki przyjęcia: po polsku, `claude plugin validate` i `claude plugin test` na zielono, bez wysyłania danych poza komputer użytkownika bez wyraźnej informacji w opisie. Najlepsze trafiają do paczki i do kolejnego filmu.
 
