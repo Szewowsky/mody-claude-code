@@ -1,6 +1,6 @@
 {
   "name": "autocommit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Przycisk nad promptem: co X minut commit z wiadomością od modelu + push (tryb auto albo propozycja do akceptacji)",
   "types": "./types/index.d.ts",
   "license": "MIT",

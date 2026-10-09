@@ -56,6 +56,16 @@ async function git($: $, root: string, args: string[], timeoutMs = 30000) {
   return { ok: r.exitCode === 0, out: r.stdout.trim(), raw: r.stdout, err: r.stderr.trim() }
 }
 
+// A system notification where the surface has one: the desktop Code tab has no
+// $.ui.notify, and its absence must not fail the round that already did its work.
+function notify($: $, text: string, title: string) {
+  try {
+    void Promise.resolve($.ui.notify(text, { title })).catch(() => {})
+  } catch {
+    // no notification is fine
+  }
+}
+
 async function report($: $, text: string, isError = false) {
   const run: LastRun = { at: await $.clock.now(), text, isError }
   await update($, last, () => run)
@@ -68,7 +78,7 @@ async function report($: $, text: string, isError = false) {
 async function fail($: $, text: string) {
   await stop($)
   await report($, `${text} (zatrzymano)`, true)
-  void $.ui.notify(text, { title: 'Auto-commit zatrzymany' })
+  notify($, text, 'Auto-commit zatrzymany')
 }
 
 async function repoRoot($: $) {
@@ -218,7 +228,7 @@ async function tick($: $, isManual = false) {
     const proposal: Proposal = { message, files, skipped, branch }
     await update($, pending, () => proposal)
     await report($, `propozycja czeka (${files.length} plików)${note}`)
-    void $.ui.notify(message, { title: 'Propozycja commita' })
+    notify($, message, 'Propozycja commita')
   } catch (err) {
     await fail($, `błąd: ${err instanceof Error ? err.message : String(err)}`)
   } finally {

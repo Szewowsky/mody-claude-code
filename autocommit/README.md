@@ -55,5 +55,5 @@ Skąd model wie, co napisać:
 
 ```bash
 claude plugin validate autocommit
-claude plugin test autocommit   # 16 testów
+claude plugin test autocommit   # 17 testów
 ```
