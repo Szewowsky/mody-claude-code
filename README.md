@@ -11,7 +11,6 @@ Film, w którym to wszystko pokazuję i buduję na żywo: [NOWOŚĆ w Claude Cod
 | [pasek](#pasek) | [`pasek/`](pasek/) | `/pasek` | Pasek nad promptem: koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff |
 | [record-mode](#record-mode) | [`record-mode/`](record-mode/) | `/record on` | Zasłania na ekranie maile, klucze API, kwoty i ścieżki domowe; model dalej widzi prawdziwy tekst |
 | [wytlumacz-mi](#wytlumacz-mi) | [`wytlumacz-mi/`](wytlumacz-mi/) | `/wytlumacz` | Tłumaczy po polsku, co Claude właśnie zrobił, i streszcza rozmowę po powrocie do sesji |
-| [autocommit](#autocommit) | [`autocommit/`](autocommit/) | `/autocommit` | Co X minut commit z wiadomością od modelu + push; tryb auto albo propozycja do akceptacji |
 | [tetris](#tetris) | [`tetris/`](tetris/) | `/tetris` | Tetris w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami |
 
 ## Instalacja
@@ -91,18 +90,6 @@ Historia wyjaśnień zapisuje się per projekt; `/wytlumacz wyczysc wszystko` j�
 **Uwaga na limit:** każde kliknięcie to osobne zapytanie do modelu (fork tej rozmowy). Jedno naraz, mod blokuje seryjne odpalanie, ale 20 kliknięć to 20 zapytań.
 
 Na bazie [Explain It](https://github.com/ruthannbravo/explain-it) Ruth-Ann Bravo (MIT), przepisane po polsku i pod styl „na temat”.
-
-### autocommit
-
-[Kod](./autocommit) · [hooks/register.tsx](./autocommit/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/autocommit`
-
-Pasek nad promptem z przyciskiem `▶ Start`: co X minut (domyślnie 15) mod sprawdza zmiany w repo, prosi model o wiadomość commita w stylu Twoich ostatnich commitów, commituje i pushuje. Komenda: `/autocommit start | stop | teraz | auto | propozycja | <minuty>`.
-
-- **Dwa tryby.** `auto` commituje i pushuje bez pytania. `propozycja` pokazuje wiadomość z przyciskami `✓ Commit & push`, `Pomiń` i polem do edycji.
-- **Nie startuje sam.** Możesz zainstalować go globalnie: w żadnym projekcie nic nie wypchnie, dopóki nie klikniesz Start.
-- **Bezpieczniki.** Pomija `.env`, klucze i pliki powyżej 25 MB, commituje tylko pliki z `git status` (nie to, co zastage'owałeś ręcznie), nie rusza repo w trakcie merge/rebase ani w połowie tury Claude'a. Odrzucony push zatrzymuje timer.
-
-**Uwaga na limit:** każda runda ze zmianami to jedno krótkie zapytanie do modelu (domyślnie `haiku`).
 
 ### tetris
 

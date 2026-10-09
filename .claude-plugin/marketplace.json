@@ -1,6 +1,6 @@
 {
   "name": "mody-claude-code",
-  "description": "Mody do Claude Code od Roberta Szewczyka i społeczności Operatorzy AI: pasek zużycia, tryb nagrywania, Wytłumacz mi, autocommit, Tetris",
+  "description": "Mody do Claude Code od Roberta Szewczyka i społeczności Operatorzy AI: pasek zużycia, tryb nagrywania, Wytłumacz mi, Tetris",
   "owner": {
     "name": "Robert Szewczyk",
     "url": "https://github.com/Szewowsky"
@@ -25,11 +25,6 @@
       "name": "tetris",
       "source": "./tetris",
       "description": "/tetris otwiera Tetrisa w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami"
-    },
-    {
-      "name": "autocommit",
-      "source": "./autocommit",
-      "description": "Co X minut commit z wiadomością od modelu + push; tryb auto albo propozycja do akceptacji"
     }
   ]
 }
