@@ -21,6 +21,7 @@ const isHidden = atom({ plugin: 'autocommit', key: 'isHidden' } as const, false)
 const isWorking = atom({ plugin: 'autocommit', key: 'isWorking' } as const, false)
 const pending = atom({ plugin: 'autocommit', key: 'pending' } as const, null)
 const last = atom({ plugin: 'autocommit', key: 'last' } as const, null)
+const minutesLeft = atom({ plugin: 'autocommit', key: 'minutesLeft' } as const, 0)
 
 const INTERVALS = [5, 10, 15, 30, 60]
 const DIFF_LIMIT = 12000
@@ -38,6 +39,9 @@ let excluded: string[] = []
 let maxBytes = 25 * 1024 * 1024
 let blocked: string[] = []
 let timer: Timer | undefined
+// Ticks once a minute so the band and the status line show the time to the next round.
+let countdown: Timer | undefined
+let nextAt = 0
 let turnStartedAt = 0
 let isDeferred = false
 
@@ -74,6 +78,20 @@ async function isMidOperation($: $, root: string) {
     if (found) return true
   }
   return false
+}
+
+// The checks every commit passes, from the timer and from an accepted proposal alike.
+type Skip = { skip: string; isError: boolean }
+
+async function gate($: $): Promise<{ root: string; branch: string } | Skip> {
+  const root = await repoRoot($)
+  if (!root) return { skip: 'to nie jest repozytorium git', isError: true }
+  const head = await git($, root, ['symbolic-ref', '-q', '--short', 'HEAD'])
+  if (!head.ok) return { skip: 'odłączony HEAD - pomijam', isError: true }
+  const branch = head.out
+  if (blocked.includes(branch)) return { skip: `gałąź ${branch} zablokowana - pomijam`, isError: false }
+  if (await isMidOperation($, root)) return { skip: 'trwa merge/rebase - pomijam', isError: false }
+  return { root, branch }
 }
 
 // What may be committed now: every change but the excluded and oversized.
@@ -156,13 +174,9 @@ async function tick($: $, isManual = false) {
   if (!isManual && (await read($, pending))) return
   await update($, isWorking, () => true)
   try {
-    const root = await repoRoot($)
-    if (!root) return await report($, 'to nie jest repozytorium git', true)
-    const head = await git($, root, ['symbolic-ref', '-q', '--short', 'HEAD'])
-    if (!head.ok) return await report($, 'odłączony HEAD - pomijam', true)
-    const branch = head.out
-    if (blocked.includes(branch)) return await report($, `gałąź ${branch} zablokowana - pomijam`)
-    if (await isMidOperation($, root)) return await report($, 'trwa merge/rebase - pomijam')
+    const repo = await gate($)
+    if ('skip' in repo) return await report($, repo.skip, repo.isError)
+    const { root, branch } = repo
 
     const { files, untracked, skipped } = await collect($, root)
     const note = skipped.length ? ` (pominięto: ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''})` : ''
@@ -182,7 +196,7 @@ async function tick($: $, isManual = false) {
       if (note) $.ui.toast(`autocommit${note}`)
       return
     }
-    const proposal: Proposal = { message, files, skipped }
+    const proposal: Proposal = { message, files, skipped, branch }
     await update($, pending, () => proposal)
     await report($, `propozycja czeka (${files.length} plików)${note}`)
     void $.ui.notify(message, { title: 'Propozycja commita' })
@@ -198,30 +212,52 @@ async function accept($: $, message: string) {
   if (!proposal || (await read($, isWorking))) return
   await update($, isWorking, () => true)
   try {
-    const root = await repoRoot($)
-    const head = root ? await git($, root, ['symbolic-ref', '-q', '--short', 'HEAD']) : undefined
-    if (!root || !head?.ok) return await fail($, 'brak repo albo odłączony HEAD')
-    // The tree may have moved on since the proposal: commit what is there now.
-    const { files } = await collect($, root)
+    const repo = await gate($)
+    if ('skip' in repo) return await report($, `${repo.skip} - propozycja czeka`, true)
+    if (repo.branch !== proposal.branch) {
+      return await report($, `gałąź zmieniła się na ${repo.branch} - propozycja była dla ${proposal.branch}`, true)
+    }
+    // Only the files shown in the proposal, and only those still changed and still allowed:
+    // a file that appeared after the proposal waits for the next round.
+    const { files: now } = await collect($, repo.root)
+    const files = proposal.files.filter(f => now.includes(f))
     await update($, pending, () => null)
-    await commitAndPush($, root, head.out, message.trim() || proposal.message, files)
+    if (!files.length) return await report($, 'pliki z propozycji już bez zmian - nic do commita')
+    await commitAndPush($, repo.root, repo.branch, message.trim() || proposal.message, files)
   } finally {
     await update($, isWorking, () => false)
   }
 }
 
+async function refresh($: $) {
+  if (!(await read($, isOn))) return
+  const left = Math.max(0, Math.ceil((nextAt - (await $.clock.now())) / 60000))
+  await update($, minutesLeft, () => left)
+  $.ui.status(left ? `autocommit: za ${left} min` : 'autocommit: zaraz')
+}
+
 async function start($: $) {
   timer?.cancel()
-  const minutes = await read($, intervalMin)
-  timer = $.clock.every(minutes * 60 * 1000, () => void tick($))
+  countdown?.cancel()
+  const ms = (await read($, intervalMin)) * 60 * 1000
+  nextAt = (await $.clock.now()) + ms
+  timer = $.clock.every(ms, async () => {
+    nextAt = (await $.clock.now()) + ms
+    await refresh($)
+    void tick($)
+  })
+  countdown = $.clock.every(60 * 1000, () => void refresh($))
   await update($, isOn, () => true)
-  $.ui.status(`autocommit: co ${minutes} min`)
+  await refresh($)
 }
 
 async function stop($: $) {
   timer?.cancel()
+  countdown?.cancel()
   timer = undefined
+  countdown = undefined
   await update($, isOn, () => false)
+  $.ui.status(undefined)
 }
 
 async function setMode($: $, value: Mode) {
@@ -307,6 +343,7 @@ export const register: Register = (on, options) => {
     const minutes = await read($, intervalMin)
     const proposal = await read($, pending)
     const lastRun = await read($, last)
+    const left = await read($, minutesLeft)
     const hasFields = Input !== undefined && Select !== undefined
     // Other mods' bands (usage-band, wytlumacz-mi) draw beneath this one.
     const below = await next(e)
@@ -315,7 +352,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column">
         <Box flexDirection="row" gap={1}>
           <Text color={running ? 'success' : 'inactive'}>
-            {running ? '●' : '○'} Auto-commit{running ? ` co ${minutes} min` : ''}
+            {running ? '●' : '○'} Auto-commit{running ? ` co ${minutes} min · ${left ? `za ${left} min` : 'zaraz'}` : ''}
             {working ? ' · pracuję…' : ''}
           </Text>
           {running ? (

@@ -3,7 +3,7 @@
 Pasek nad promptem: co X minut sprawdza zmiany w repo, prosi model o wiadomość commita (`type(scope): opis`, po polsku, w stylu ostatnich commitów) i commituje + pushuje.
 
 ```
-● Auto-commit co 15 min   [⏹ Stop] [Teraz]  tryb: auto ▾  co: 15 min ▾
+● Auto-commit co 15 min · za 7 min   [⏹ Stop] [Teraz]  tryb: auto ▾  co: 15 min ▾
 14:05 ✓ content(codex-sdk): poprawki opisu filmu
 ```
 
@@ -11,6 +11,8 @@ Pasek nad promptem: co X minut sprawdza zmiany w repo, prosi model o wiadomość
 
 - **auto** (domyślny) - commit + push bez pytania. Wypycha też lokalne commity, które czekają na push.
 - **propozycja** - pokazuje wiadomość i przyciski `✓ Commit & push` / `Pomiń` / pole `edytuj:` (Enter = commit z poprawioną wiadomością). Plus systemowe powiadomienie. Kolejne rundy czekają, aż zdecydujesz.
+
+Pasek i linia statusu na dole odliczają minuty do następnej rundy.
 
 Przełączasz w pasku (`tryb`) albo komendą. Tryb i interwał są pamiętane między sesjami. Sam timer **nigdy nie startuje sam** - zawsze `▶ Start`, żeby nie zaczął pushować w innym projekcie.
 
@@ -24,6 +26,7 @@ Przełączasz w pasku (`tryb`) albo komendą. Tryb i interwał są pamiętane mi
 - Pomija pliki większe niż 25 MB (konfigurowalne).
 - Commituje tylko konkretne pliki ze `git status` (`git commit -- <pliki>`): to, co ktoś wcześniej zastage'ował ręcznie, zostaje poza commitem. Ścieżki są dosłowne (`--literal-pathspecs`), więc nazwa pliku nie poszerzy zakresu. `.gitignore` działa normalnie.
 - Nie rusza repo w trakcie merge/rebase/cherry-pick ani na odłączonym HEAD.
+- Zatwierdzona propozycja commituje tylko pliki, które na niej były: plik dodany później czeka do następnej rundy. Kliknięcie przechodzi te same blokady co runda, a po zmianie gałęzi propozycja czeka.
 - Gdy Claude akurat pracuje (tura w toku), runda czeka do końca tury - nie łapie połowicznych zmian.
 - Błąd (np. push odrzucony, bo zdalne repo jest do przodu) = timer się zatrzymuje + powiadomienie. Commit zostaje lokalnie.
 - Opcjonalnie: gałęzie zablokowane (`blockedBranches`, np. `main`).
@@ -47,5 +50,5 @@ Model do wiadomości: domyślnie `haiku` (tanio, szybko) - zmiana w `/plugin con
 
 ```bash
 claude plugin validate autocommit
-claude plugin test autocommit   # 7 testów
+claude plugin test autocommit   # 10 testów
 ```
