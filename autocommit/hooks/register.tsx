@@ -7,10 +7,13 @@ import {
   buildPrompt,
   cleanMessage,
   fallbackMessage,
+  fileHead,
   isExcluded,
   parsePorcelain,
+  sessionContext,
   splitList,
 } from './git'
+import type { NewFile } from './git'
 
 type $ = EngineInterface
 
@@ -35,6 +38,8 @@ const clock = (ms: number): string => {
 }
 
 let model = 'haiku'
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+let effort: (typeof EFFORTS)[number] | undefined = 'medium'
 let excluded: string[] = []
 let maxBytes = 25 * 1024 * 1024
 let blocked: string[] = []
@@ -120,9 +125,19 @@ async function collect($: $, root: string) {
 
 async function propose($: $, root: string, files: string[], untracked: string[]) {
   const tracked = files.filter(f => !untracked.includes(f))
-  const recent = await git($, root, ['log', '--format=%s', '-12'])
+  const recent = await git($, root, ['log', '--format=%s', '-8'])
   const stat = tracked.length ? await git($, root, ['diff', 'HEAD', '--stat', '--', ...tracked]) : undefined
   const diff = tracked.length ? await git($, root, ['diff', 'HEAD', '--', ...tracked]) : undefined
+  // New files have no diff: the model reads their opening instead, within the same budget.
+  let budget = DIFF_LIMIT - (diff?.out.length ?? 0)
+  const newFiles: NewFile[] = []
+  for (const path of untracked) {
+    const text = budget > 0 ? await $.fs.read(`${root}/${path}`).catch(() => undefined) : undefined
+    const head = typeof text === 'string' ? fileHead(text)?.slice(0, budget) : undefined
+    budget -= head?.length ?? 0
+    newFiles.push({ path, head })
+  }
+  const messages = await $.session.messages().catch(() => [])
   const r = await $.model.complete({
     model,
     system: SYSTEM,
@@ -130,10 +145,13 @@ async function propose($: $, root: string, files: string[], untracked: string[])
       recent: recent.out,
       stat: stat?.out ?? '',
       diff: (diff?.out ?? '').slice(0, DIFF_LIMIT),
-      untracked,
+      untracked: newFiles,
+      session: sessionContext(messages, root, files),
     }),
-    maxTokens: 200,
-    timeoutMs: 60000,
+    ...(effort ? { effort } : {}),
+    // Room for the thinking an effort level buys, ahead of the one line.
+    maxTokens: 4000,
+    timeoutMs: 90000,
   })
   const message = r.isAnswered ? cleanMessage(r.text) : ''
   return message || fallbackMessage(files)
@@ -275,6 +293,8 @@ async function setIntervalMin($: $, minutes: number) {
 
 export const register: Register = (on, options) => {
   model = String(options.model || 'haiku')
+  const level = String(options.effort ?? 'medium')
+  effort = EFFORTS.find(e => e === level)
   excluded = splitList(options.excludePatterns)
   maxBytes = Number(options.maxFileMB || 25) * 1024 * 1024
   blocked = splitList(options.blockedBranches)

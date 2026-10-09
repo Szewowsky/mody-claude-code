@@ -9,6 +9,8 @@ const USAGE = { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 
 
 // Every line the mod put in the status bar, newest last.
 const statuses: (string | undefined)[] = []
+// Every request the mod sent the model, newest last.
+const asked: { prompt: string; effort?: string; maxTokens?: number }[] = []
 
 // A fake repo: answers each git call and records the ones that change things.
 // Pass an object to change the working tree or the branch in the middle of a test.
@@ -42,9 +44,10 @@ const fakeGit = (on: On, start: string | Repo, pushError = '') => {
   on('fs.stat', ($, e) =>
     e.path.includes('/.git/') ? { deny: 'missing' } : { value: { kind: 'file', size: 10, mtimeMs: 0, isLink: false } },
   )
-  on('model.complete', () => ({
-    value: { isAnswered: true, text: 'content(opis): poprawki opisu filmu', usage: USAGE },
-  }))
+  on('model.complete', ($, e) => {
+    asked.push({ prompt: e.prompt, effort: e.effort, maxTokens: e.maxTokens })
+    return { value: { isAnswered: true, text: 'content(opis): poprawki opisu filmu', usage: USAGE } }
+  })
   // Another mod's band beneath this one, as usage-band draws.
   on('ui.render', ($, e) => {
     const { Text } = $.ui.resolve(e)
@@ -190,5 +193,27 @@ test('after a round the status line goes back to the countdown, not the result',
   expect(statuses.at(-1)).toBe('autocommit: za 15 min')
   expect(await ui.find({ type: 'Text', text: /✓ content\(opis\)/ })).toBeDefined()
   await ui.press({ key: 'stop' })
+  await ui.unmount()
+})
+
+test('a round names the commit from the new file and the session that wrote it, at the set effort', { options: { effort: 'high' } }, async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  asked.length = 0
+  on('session.messages', () => ({
+    value: [
+      { role: 'user', text: 'Zajmijmy się analizą łapek w dół filmu Codex SDK', toolUses: [] },
+      { role: 'assistant', text: 'Rozjazd obietnicy tytułu z treścią.', toolUses: [{ tool_use_id: 't', tool: 'Write', input: { file_path: '/repo/case.md' } }] },
+    ],
+  }))
+  on('fs.read', () => ({ value: '# Case: łapki w dół - Codex SDK\n125 w górę / 11 w dół' }))
+  fakeGit(on, '?? case.md\0')
+  const ui = await $.ui.mount({ plugin: 'autocommit', surface: 'terminal', ...BAND })
+  await ui.press({ key: 'now' })
+  expect(asked.length).toBe(1)
+  expect(asked[0]?.effort).toBe('high')
+  expect(asked[0]?.prompt).toMatch(/125 w górę \/ 11 w dół/)
+  expect(asked[0]?.prompt).toMatch(/analizą łapek w dół filmu Codex SDK/)
+  expect((asked[0]?.maxTokens ?? 0) >= 2000).toBe(true)
   await ui.unmount()
 })

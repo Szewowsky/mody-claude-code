@@ -44,11 +44,16 @@ W sesji Claude Code:
 
 Instalacja w zasięgu użytkownika daje przycisk w każdym projekcie, ale timer w żadnym nie rusza bez `▶ Start`.
 
-Model do wiadomości: domyślnie `haiku` (tanio, szybko) - zmiana w `/plugin configure autocommit@mody-claude-code`.
+Model do wiadomości: domyślnie `haiku` z effortem `medium` (tanio, szybko) - zmiana w `/plugin configure autocommit@mody-claude-code`.
+
+Skąd model wie, co napisać:
+- **diff** zmienionych plików i **początek treści nowych plików** (pierwsze 40 linii) - to „co”,
+- **kontekst sesji** - ostatnie prośby i pierwsze zdania odpowiedzi - to „po co”. Tylko dla plików, które ta sesja sama zapisała (Write/Edit); plik dopisany przez skrypt albo ręcznie dostaje opis z samego diffu,
+- ostatnie commity z repo służą wyłącznie jako wzór formatu.
 
 ## Rozwój
 
 ```bash
 claude plugin validate autocommit
-claude plugin test autocommit   # 11 testów
+claude plugin test autocommit   # 16 testów
 ```
