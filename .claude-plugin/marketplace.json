@@ -1,6 +1,6 @@
 {
   "name": "mody-claude-code",
-  "description": "Mody do Claude Code od Roberta Szewczyka i społeczności Operatorzy AI: pasek zużycia, tryb nagrywania, Wytłumacz mi, bezpiecznik, cel sesji, autocommit, Tetris",
+  "description": "Mody do Claude Code od Roberta Szewczyka i społeczności Operatorzy AI: pasek zużycia, tryb nagrywania, Wytłumacz mi, bezpiecznik, cel sesji, Tetris",
   "owner": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },
   "plugins": [
     { "name": "pasek", "source": "./pasek", "description": "Pasek nad promptem: koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff" },
@@ -8,7 +8,6 @@
     { "name": "wytlumacz-mi", "source": "./wytlumacz-mi", "description": "Tłumaczy po polsku, co Claude właśnie zrobił, i streszcza rozmowę po powrocie do sesji" },
     { "name": "bezpiecznik", "source": "./bezpiecznik", "description": "Groźne komendy Bash (rm -rf, push --force, DROP, curl | sh) czekają na Twoje potwierdzenie" },
     { "name": "cel", "source": "./cel", "description": "Cel sesji nad promptem: /cel <tekst> albo wbudowane /goal; czas, prompty i postęp zadań Claude'a" },
-    { "name": "autocommit", "source": "./autocommit", "description": "Co X minut commit z wiadomością od modelu + push; tryb auto albo propozycja do akceptacji" },
     { "name": "tetris", "source": "./tetris", "description": "/tetris otwiera Tetrisa w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami" }
   ]
 }

@@ -13,7 +13,6 @@ Film, w którym to wszystko pokazuję i buduję na żywo: [NOWOŚĆ w Claude Cod
 | [wytlumacz-mi](#wytlumacz-mi) | [`wytlumacz-mi/`](wytlumacz-mi/) | `/wytlumacz` | Tłumaczy po polsku, co Claude właśnie zrobił, i streszcza rozmowę po powrocie do sesji |
 | [bezpiecznik](#bezpiecznik) | [`bezpiecznik/`](bezpiecznik/) | `/bezpiecznik` | `rm -rf`, `git push --force`, `DROP`, `curl \| sh` zatrzymują się i czekają na Twoje potwierdzenie |
 | [cel](#cel) | [`cel/`](cel/) | `/cel`, `/goal` | Cel sesji nad promptem z czasem, promptami i postępem zadań; `/goal` ustawia go sam |
-| [autocommit](#autocommit) | [`autocommit/`](autocommit/) | `/autocommit` | Co X minut commit z wiadomością od modelu + push; tryb auto albo propozycja do akceptacji |
 | [tetris](#tetris) | [`tetris/`](tetris/) | `/tetris` | Tetris w panelu obok, gdy Claude pracuje; rekord zostaje między sesjami |
 
 ## Instalacja
@@ -126,17 +125,6 @@ Rozbiór komend (cudzysłowy, `sudo`, `npx`, potoki, heredoc) wzięty z [launch-
 Działa też z wbudowanym `/goal`: `/goal testy przechodzą` ustawia cel sam (na pasku jako „Goal:”), `/goal clear` go zdejmuje, a cel zaproponowany przez Claude'a (narzędzie ProposeGoal) ląduje na pasku po Twojej zgodzie. Gdy Claude w trakcie celu zakłada zadania (TaskCreate), pasek pokazuje postęp `▰▰▰▱▱▱ 3/6`, a `/cel lista` wypisuje je z odhaczeniem. Kiedy odpalasz kilka `/goal` naraz i gubisz, który jak daleko zaszedł, to jest ten mod.
 
 Claude też widzi cel z `/cel`: mod dokłada go jako sekcję systemowego promptu na czas sesji, więc gdy rozmowa odpływa od tematu, Claude ma to zaznaczyć jednym zdaniem. Cel z `/goal` silnik pilnuje sam, więc tam sekcja nie jest dokładana.
-### autocommit
-
-[Kod](./autocommit) · [hooks/register.tsx](./autocommit/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/autocommit`
-
-Pasek nad promptem z przyciskiem `▶ Start`: co X minut (domyślnie 15) mod sprawdza zmiany w repo, prosi model o wiadomość commita w stylu Twoich ostatnich commitów, commituje i pushuje. Komenda: `/autocommit start | stop | teraz | auto | propozycja | <minuty>`.
-
-- **Dwa tryby.** `auto` commituje i pushuje bez pytania. `propozycja` pokazuje wiadomość z przyciskami `✓ Commit & push`, `Pomiń` i polem do edycji.
-- **Nie startuje sam.** Możesz zainstalować go globalnie: w żadnym projekcie nic nie wypchnie, dopóki nie klikniesz Start.
-- **Bezpieczniki.** Pomija `.env`, klucze i pliki powyżej 25 MB, commituje tylko pliki z `git status` (nie to, co zastage'owałeś ręcznie), nie rusza repo w trakcie merge/rebase ani w połowie tury Claude'a. Odrzucony push zatrzymuje timer.
-
-**Uwaga na limit:** każda runda ze zmianami to jedno krótkie zapytanie do modelu (domyślnie `haiku`).
 
 ### tetris
 
