@@ -7,8 +7,14 @@ const BAND = {
 }
 const USAGE = { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
 
+// Every line the mod put in the status bar, newest last.
+const statuses: (string | undefined)[] = []
+
 // A fake repo: answers each git call and records the ones that change things.
-const fakeGit = (on: On, status: string, pushError = '') => {
+// Pass an object to change the working tree or the branch in the middle of a test.
+type Repo = { status: string; branch: string }
+const fakeGit = (on: On, start: string | Repo, pushError = '') => {
+  const repo = typeof start === 'string' ? { status: start, branch: 'main' } : start
   const calls: string[][] = []
   on('process.run', ($, e) => {
     // A git call without literal pathspecs fails here, so every test also checks the flag.
@@ -24,8 +30,8 @@ const fakeGit = (on: On, status: string, pushError = '') => {
     if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return ok('/repo')
     if (args[0] === 'rev-parse' && args[1] === '--git-path') return ok(`.git/${args[2]}`)
     if (args[0] === 'rev-parse' && args.includes('@{u}')) return ok('origin/main')
-    if (args[0] === 'symbolic-ref') return ok('main')
-    if (args[0] === 'status') return ok(status)
+    if (args[0] === 'symbolic-ref') return ok(repo.branch)
+    if (args[0] === 'status') return ok(repo.status)
     if (args[0] === 'rev-list') return ok('1')
     if (args[0] === 'log') return ok('content(x): coś tam')
     if (args[0] === 'diff') return ok('a.md | 2 +-')
@@ -44,7 +50,10 @@ const fakeGit = (on: On, status: string, pushError = '') => {
     const { Text } = $.ui.resolve(e)
     return <Text>usage-band</Text>
   })
-  on('ui.status', () => ({ value: undefined }))
+  on('ui.status', ($, e) => {
+    statuses.push(e.text)
+    return { value: undefined }
+  })
   on('ui.toast', () => ({ value: undefined }))
   on('ui.notify', () => ({ value: { isSent: true, channel: 'terminal_bell' } }))
   return calls
@@ -112,5 +121,60 @@ test('a failed push stops the timer and says so', async ($, on) => {
   await clock.advance(15 * 60 * 1000)
   expect(await ui.find({ type: 'Text', text: /push nieudany.*zatrzymano/ })).toBeDefined()
   expect(await ui.find({ key: 'start' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('accept commits only the proposed files, never one that appeared later', async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  const repo = { status: ' M a.md\0', branch: 'main' }
+  const calls = fakeGit(on, repo)
+  const ui = await $.ui.mount({ plugin: 'autocommit', surface: 'terminal', ...BAND })
+  await ui.select({ key: 'mode', value: 'propose' })
+  await ui.press({ key: 'now' })
+  repo.status = ' M a.md\0?? nowy-sekret.txt\0'
+  await ui.press({ key: 'accept' })
+  expect(changing(calls)).toEqual([
+    ['add', '-A', '--', 'a.md'],
+    ['commit', '-m', 'content(opis): poprawki opisu filmu', '--', 'a.md'],
+    ['push'],
+  ])
+  await ui.unmount()
+})
+
+test('accept passes the same gates as a round: blocked branch, switched branch', { options: { blockedBranches: 'main' } }, async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  const repo = { status: ' M a.md\0', branch: 'feature' }
+  const calls = fakeGit(on, repo)
+  const ui = await $.ui.mount({ plugin: 'autocommit', surface: 'terminal', ...BAND })
+  await ui.select({ key: 'mode', value: 'propose' })
+  await ui.press({ key: 'now' })
+  repo.branch = 'main'
+  await ui.press({ key: 'accept' })
+  expect(changing(calls)).toEqual([])
+  expect(await ui.find({ type: 'Text', text: /gałąź main zablokowana/ })).toBeDefined()
+  repo.branch = 'inna'
+  await ui.press({ key: 'accept' })
+  expect(changing(calls)).toEqual([])
+  expect(await ui.find({ type: 'Text', text: /propozycja była dla feature/ })).toBeDefined()
+  expect(await ui.find({ key: 'accept' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('the band and the status line count down to the next round', async ($, on) => {
+  const clock = mock.clock(on)
+  mock.store(on)
+  fakeGit(on, '')
+  const ui = await $.ui.mount({ plugin: 'autocommit', surface: 'terminal', ...BAND })
+  await ui.press({ key: 'start' })
+  expect(await ui.find({ type: 'Text', text: /co 15 min · za 15 min/ })).toBeDefined()
+  await clock.advance(6 * 60 * 1000)
+  expect(await ui.find({ type: 'Text', text: /za 9 min/ })).toBeDefined()
+  expect(statuses.at(-1)).toBe('autocommit: za 9 min')
+  await clock.advance(9 * 60 * 1000)
+  expect(await ui.find({ type: 'Text', text: /za 15 min/ })).toBeDefined()
+  await ui.press({ key: 'stop' })
+  expect(await ui.find({ type: 'Text', text: /za \d+ min/ })).toBeUndefined()
   await ui.unmount()
 })

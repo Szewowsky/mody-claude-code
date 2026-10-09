@@ -1,6 +1,6 @@
 export type Mode = 'auto' | 'propose'
 
-export type Proposal = { message: string; files: string[]; skipped: string[] }
+export type Proposal = { message: string; files: string[]; skipped: string[]; branch: string }
 
 export type LastRun = { at: number; text: string; isError: boolean }
 
@@ -14,6 +14,7 @@ declare module 'claude-code' {
       isWorking: boolean
       pending: Proposal | null
       last: LastRun | null
+      minutesLeft: number
     }
   }
 }
