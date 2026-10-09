@@ -54,7 +54,8 @@ async function git($: $, root: string, args: string[], timeoutMs = 30000) {
 async function report($: $, text: string, isError = false) {
   const run: LastRun = { at: await $.clock.now(), text, isError }
   await update($, last, () => run)
-  $.ui.status(`autocommit: ${text}`)
+  // While the timer runs the status line keeps the countdown; the band's row shows the result.
+  if (!(await read($, isOn))) $.ui.status(`autocommit: ${text}`)
   if (isError) $.ui.toast(`autocommit: ${text}`)
 }
 
@@ -286,6 +287,9 @@ export const register: Register = (on, options) => {
     const savedInterval = Number(await $.store.get('intervalMin'))
     if (INTERVALS.includes(savedInterval)) await update($, intervalMin, () => savedInterval)
     if ((await $.store.get('isHidden')) === true) await update($, isHidden, () => true)
+    // A reload keeps the session's state but drops the module's timers: a timer the person
+    // started in this session carries on. A new session starts with it off.
+    if (await read($, isOn)) await start($)
 
     await $.command.register({
       name: 'autocommit',

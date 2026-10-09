@@ -12,7 +12,7 @@ Pasek nad promptem: co X minut sprawdza zmiany w repo, prosi model o wiadomość
 - **auto** (domyślny) - commit + push bez pytania. Wypycha też lokalne commity, które czekają na push.
 - **propozycja** - pokazuje wiadomość i przyciski `✓ Commit & push` / `Pomiń` / pole `edytuj:` (Enter = commit z poprawioną wiadomością). Plus systemowe powiadomienie. Kolejne rundy czekają, aż zdecydujesz.
 
-Pasek i linia statusu na dole odliczają minuty do następnej rundy.
+Pasek i linia statusu na dole odliczają minuty do następnej rundy. Po `/reload-plugins` włączony timer leci dalej; nowa sesja zaczyna z wyłączonym.
 
 Przełączasz w pasku (`tryb`) albo komendą. Tryb i interwał są pamiętane między sesjami. Sam timer **nigdy nie startuje sam** - zawsze `▶ Start`, żeby nie zaczął pushować w innym projekcie.
 
@@ -50,5 +50,5 @@ Model do wiadomości: domyślnie `haiku` (tanio, szybko) - zmiana w `/plugin con
 
 ```bash
 claude plugin validate autocommit
-claude plugin test autocommit   # 10 testów
+claude plugin test autocommit   # 11 testów
 ```
