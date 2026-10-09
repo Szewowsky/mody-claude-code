@@ -1,6 +1,6 @@
 {
   "name": "autocommit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Przycisk nad promptem: co X minut commit z wiadomością od modelu + push (tryb auto albo propozycja do akceptacji)",
   "types": "./types/index.d.ts",
   "license": "MIT",
@@ -16,6 +16,12 @@
       "title": "Model do wiadomości commitów",
       "description": "Alias lub pełne id modelu, który pisze wiadomość commita",
       "default": "haiku"
+    },
+    "effort": {
+      "type": "string",
+      "title": "Effort modelu",
+      "description": "Jak mocno model myśli nad wiadomością: low, medium, high, xhigh, max (puste = domyślny modelu)",
+      "default": "medium"
     },
     "excludePatterns": {
       "type": "string",
