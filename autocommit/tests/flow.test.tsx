@@ -11,6 +11,8 @@ const USAGE = { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 
 const statuses: (string | undefined)[] = []
 // Every request the mod sent the model, newest last.
 const asked: { prompt: string; effort?: string; maxTokens?: number }[] = []
+// A surface without system notifications (the desktop Code tab), when set.
+let isNotifyMissing = false
 
 // A fake repo: answers each git call and records the ones that change things.
 // Pass an object to change the working tree or the branch in the middle of a test.
@@ -58,7 +60,10 @@ const fakeGit = (on: On, start: string | Repo, pushError = '') => {
     return { value: undefined }
   })
   on('ui.toast', () => ({ value: undefined }))
-  on('ui.notify', () => ({ value: { isSent: true, channel: 'terminal_bell' } }))
+  on('ui.notify', () => {
+    if (isNotifyMissing) throw new TypeError('$.ui.notify is not a function')
+    return { value: { isSent: true, channel: 'terminal_bell' } }
+  })
   return calls
 }
 
@@ -215,5 +220,19 @@ test('a round names the commit from the new file and the session that wrote it, 
   expect(asked[0]?.prompt).toMatch(/125 w górę \/ 11 w dół/)
   expect(asked[0]?.prompt).toMatch(/analizą łapek w dół filmu Codex SDK/)
   expect((asked[0]?.maxTokens ?? 0) >= 2000).toBe(true)
+  await ui.unmount()
+})
+
+test('a surface whose notification fails still leaves the proposal and keeps the timer', async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  isNotifyMissing = true
+  fakeGit(on, ' M a.md\0')
+  const ui = await $.ui.mount({ plugin: 'autocommit', surface: 'desktop', ...BAND })
+  await ui.select({ key: 'mode', value: 'propose' })
+  await ui.press({ key: 'now' })
+  isNotifyMissing = false
+  expect(await ui.find({ type: 'Text', text: /poprawki opisu filmu/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /błąd/ })).toBeUndefined()
   await ui.unmount()
 })
