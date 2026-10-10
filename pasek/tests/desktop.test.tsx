@@ -107,6 +107,25 @@ test('/pasek scena kosmos switches Clawd to space, plaza switches back, junk exp
   expect((await clawd()).props.alt).toMatch(/plaży/)
 })
 
+test('/pasek kosmos and /pasek plaza work without the word scena, bare /pasek still shows the threshold', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  mock.store(on)
+  base(on as never)
+  const clawd = async () => {
+    const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
+    const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
+    await ui.unmount()
+    return svgs.find(s => /Clawd/.test(s.props.alt))!
+  }
+  expect((await $.command.run({ command: 'pasek', args: 'kosmos' } as never)).text).toMatch(/Scena Clawda: kosmos/)
+  expect((await clawd()).props.alt).toMatch(/kosmos/)
+  expect((await $.command.run({ command: 'pasek', args: 'Plaża' } as never)).text).toMatch(/Scena Clawda: plaza/)
+  expect((await clawd()).props.alt).toMatch(/plaży/)
+  expect((await $.command.run({ command: 'pasek', args: '' } as never)).text).toMatch(/Próg kontekstu/)
+  // junk lists the scene shortcut too, so nobody has to guess the word scena
+  expect((await $.command.run({ command: 'pasek', args: 'mars' } as never)).text).toMatch(/\/pasek kosmos/)
+})
+
 test('restart: with no session copy of the scene (a reloaded module, a new session) the store keeps kosmos', async ($, on) => {
   mock.clock(on, { now: NOW })
   mock.store(on)
