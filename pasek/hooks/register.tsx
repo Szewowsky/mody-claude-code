@@ -177,8 +177,8 @@ export const register: Register = on => {
     await Promise.all([refresh($), refreshBranch($)])
     await $.command.register({
       name: 'pasek',
-      description: 'Próg kontekstu dla Handoff (ta sesja), scena Clawda na desktopie (plaza/kosmos), handoff',
-      argumentHint: 'prog <1-99|off|reset> | scena <plaza|kosmos> | handoff',
+      description: 'Próg kontekstu dla Handoff (ta sesja), scena Clawda na desktopie (kosmos/plaza), handoff',
+      argumentHint: 'prog <1-99|off|reset> | kosmos | plaza | handoff',
     })
     return out
   })
@@ -197,10 +197,11 @@ export const register: Register = on => {
       )
       return { text: `Odpalam handoff - zapisze się w ${cwd}/.claude/` }
     }
-    if (/^scena\b/.test(e.args.trim())) {
-      const sc = parseScene(e.args)
-      if (sc === 'show') return { text: `Scena Clawda: ${await currentScene($)} (do wyboru: plaza, kosmos).` }
-      if (sc === null) return { text: 'Użycie: /pasek scena plaza · /pasek scena kosmos' }
+    // a bare scene name (/pasek kosmos) needs no "scena": it can't be mistaken for prog or handoff
+    const sc = parseScene(e.args)
+    if (/^scena\b/.test(e.args.trim()) || sc === 'plaza' || sc === 'kosmos') {
+      if (sc === 'show') return { text: `Scena Clawda: ${await currentScene($)} (do wyboru: kosmos, plaza).` }
+      if (sc === null) return { text: 'Użycie: /pasek kosmos · /pasek plaza' }
       await $.store.set(SCENE_KEY, sc)
       await update($, scene, () => sc)
       return { text: `Scena Clawda: ${sc} (zapamiętana na kolejne sesje).` }
@@ -208,7 +209,7 @@ export const register: Register = on => {
     const v = parseProg(e.args)
     const now = await read($, prog)
     if (v === 'show') return { text: now ? `Próg kontekstu: ${now}% (domyślnie ${DEFAULT_PROG}%).` : 'Próg kontekstu wyłączony.' }
-    if (v === null) return { text: 'Użycie: /pasek prog 20 · /pasek prog off · /pasek prog reset' }
+    if (v === null) return { text: 'Użycie: /pasek kosmos · /pasek plaza · /pasek prog 20 · /pasek prog off · /pasek prog reset · /pasek handoff' }
     const next = v === 'off' ? 0 : v
     await update($, prog, () => next)
     await update($, warnedProg, () => false)
