@@ -64,6 +64,8 @@ Dwa wiersze nad promptem: repo i branch, czas sesji, liczba promptów, koszt, os
 - **REC.** Przycisk włącza tryb nagrywania z modu `record-mode` (jeśli jest zainstalowany). Kwoty na pasku zmieniają się wtedy na `[kwota]`.
 - **Wytłumacz.** Przycisk z modu `wytlumacz-mi` (jeśli jest zainstalowany) siedzi obok REC.
 
+W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są repo, branch, czas, prompty i koszt, a po prawej ostatnia tura i przyciski. W drugim kontekst oraz limity 5h i 7d jako pierścienie z ikoną (chip, zegar, kalendarz), procentem i dopiskiem (`33%  ctx · 331k/1M`, `32%  5h · reset za 4h 2m`). Kolor kontekstu idzie za progiem Handoff, a po jego przekroczeniu dochodzi `⚠ granica`. Gdy API nie zgłosiło limitu, pierścień jest szary z napisem `5h · brak odczytu`. Po prawej stronie siedzi animowany pixel-art Clawd w czarnych okularach, w jednej z dwóch scen: plaża o zachodzie słońca albo kosmos (Clawd w hełmie astronauty, gwiazdy, planeta, kometa). Scenę zmienisz komendą `/pasek scena plaza` albo `/pasek scena kosmos` i zostaje na kolejne sesje. Licznik cache stoi w stopce pod polem promptu, obok etykiet trybu sesji (`cache 42 min`), i zmienia kolor: zielony powyżej 30 minut, żółty od 30 do 15, czerwony poniżej 15 i przy `cache cold`. W terminalu i VS Code pasek zostaje taki jak był.
+
 Pasek działa sam. `record-mode` i `wytlumacz-mi` tylko dokładają do niego swoje przyciski.
 
 ### record-mode

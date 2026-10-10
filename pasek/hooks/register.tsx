@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { LastTurn, Usage } from '../types'
+import type { LastTurn, Limit, Scene, Usage } from '../types'
+import { TONE_HEX, clawd, ring } from './art'
 
 const usage = atom({ plugin: 'pasek', key: 'usage' } as const, null)
 const branch = atom({ plugin: 'pasek', key: 'branch' } as const, '')
@@ -14,6 +15,27 @@ const recOn = atom({ plugin: 'record-mode', key: 'isOn' } as const, false)
 // context threshold for the handoff; /pasek prog sets it for this session only (0 = off)
 const prog = atom({ plugin: 'pasek', key: 'prog' } as const, 40)
 const warnedProg = atom({ plugin: 'pasek', key: 'warnedProg' } as const, false)
+// Clawd's scene on desktop: kept across sessions in $.store, mirrored here so /pasek scena redraws the band
+const scene = atom({ plugin: 'pasek', key: 'scene' } as const, null)
+const SCENE_KEY = 'scene'
+const DEFAULT_SCENE: Scene = 'plaza'
+
+function parseScene(args: string): Scene | 'show' | null {
+  const a = args.trim().replace(/^scena\b/, '').trim().toLowerCase()
+  if (a === '') return 'show'
+  if (a === 'plaza' || a === 'plaża') return 'plaza'
+  if (a === 'kosmos' || a === 'space') return 'kosmos'
+  return null
+}
+
+const asScene = (v: unknown): Scene | null => (v === 'plaza' || v === 'kosmos' ? v : null)
+
+// the session's copy first; a fresh session (or one before /pasek scena) falls back to the store
+async function currentScene($: EngineInterface): Promise<Scene> {
+  const own = await read($, scene)
+  if (own) return own
+  return asScene(await $.store.get(SCENE_KEY).catch(() => undefined)) ?? DEFAULT_SCENE
+}
 
 // Claude Code on a subscription caches prompts for 1h; an API-key session gets 5 min, make it a userConfig if that ever matters
 const CACHE_TTL = 60 * 60_000
@@ -87,6 +109,8 @@ function tokens(n: number) {
 
 async function refresh($: EngineInterface) {
   const u = await $.session.usage()
+  // which limits the last API response reported (sometimes only seven_day): for the 5h ring diagnosis
+  $.ui.log(`pasek: rateLimits kinds = [${u.rateLimits.map(l => l.kind).join(', ')}]`, { to: 'debug' })
   const next: Usage = {
     tokens: u.context.tokens,
     window: u.context.window,
@@ -104,12 +128,33 @@ async function refreshBranch($: EngineInterface) {
   await update($, branch, () => name)
 }
 
+// desktop cache thresholds, apart from WARN_AT (toast) and the terminal cacheLine colours, which stay as they were:
+// green above 30 min left, yellow 30-15 min, red under 15 min
+const CACHE_YELLOW = 30 * 60_000
+const CACHE_RED = 15 * 60_000
+
+// desktop: the cache countdown as coloured text in the prompt footer (SessionMode), in whole minutes
+// (the timer redraws every 30 s; MM:SS would need a redraw a second, see restartTimer)
+function cacheDesktop(at: number | null, now: number): { text: string; color?: 'green' | 'yellow' | 'red' } {
+  if (at === null) return { text: 'cache -' }
+  const left = at + CACHE_TTL - now
+  if (left <= 0) return { text: 'cache cold', color: 'red' }
+  const color = left > CACHE_YELLOW ? 'green' : left >= CACHE_RED ? 'yellow' : 'red'
+  return { text: `cache ${Math.ceil(left / 60_000)} min`, color }
+}
+
+// how the footer shows it: 'tree' draws our own coloured Text beside the engine's mode labels;
+// 'modes' (fallback, if the desktop ever refuses the tree) adds a plain dim label through props.modes
+const FOOTER = 'tree' as 'tree' | 'modes'
+
 let warned = false
 let timer: Timer | null = null
 
 // redraws the cache countdown and warns once before the cache goes cold.
 // Restarted every turn: a timer started only at session.start died silently (the countdown sat
-// at 1h 0m) once the hook overran its budget waiting on the other mods' session.start beneath it
+// at 1h 0m) once the hook overran its budget waiting on the other mods' session.start beneath it.
+// 30 s, not 1 s: every redraw re-runs the band's dozen engine calls and re-sends the Clawd Svg
+// (up to ~19k characters), and whether the desktop keeps its animated frame across that is untested
 function restartTimer($: EngineInterface) {
   timer?.cancel()
   timer = $.clock.every(30_000, async () => {
@@ -125,13 +170,15 @@ function restartTimer($: EngineInterface) {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
+    // 1.2.0 pinned the cache countdown to the status line; a reload clears that line once, nothing sets it now
+    $.ui.status(undefined)
     restartTimer($)
     const out = await next(e)
     await Promise.all([refresh($), refreshBranch($)])
     await $.command.register({
       name: 'pasek',
-      description: 'Próg kontekstu dla przycisku Handoff na pasku (tylko ta sesja)',
-      argumentHint: 'prog <1-99|off|reset> | handoff',
+      description: 'Próg kontekstu dla Handoff (ta sesja), scena Clawda na desktopie (plaza/kosmos), handoff',
+      argumentHint: 'prog <1-99|off|reset> | scena <plaza|kosmos> | handoff',
     })
     return out
   })
@@ -149,6 +196,14 @@ export const register: Register = on => {
         ),
       )
       return { text: `Odpalam handoff - zapisze się w ${cwd}/.claude/` }
+    }
+    if (/^scena\b/.test(e.args.trim())) {
+      const sc = parseScene(e.args)
+      if (sc === 'show') return { text: `Scena Clawda: ${await currentScene($)} (do wyboru: plaza, kosmos).` }
+      if (sc === null) return { text: 'Użycie: /pasek scena plaza · /pasek scena kosmos' }
+      await $.store.set(SCENE_KEY, sc)
+      await update($, scene, () => sc)
+      return { text: `Scena Clawda: ${sc} (zapamiętana na kolejne sesje).` }
     }
     const v = parseProg(e.args)
     const now = await read($, prog)
@@ -208,7 +263,7 @@ export const register: Register = on => {
 
     // drawing is pure: no state writes here (a write skips the hook and the band vanishes).
     // The usage atom is read only so session.measure redraws us; figures come fresh.
-    const [, , br, n, turn, cwd, now, s, cAt, rec, cmds, p] = await Promise.all([
+    const [, , br, n, turn, cwd, now, s, cAt, rec, cmds, p, sc] = await Promise.all([
       read($, usage),
       read($, tick),
       read($, branch),
@@ -221,6 +276,7 @@ export const register: Register = on => {
       read($, recOn),
       $.command.list().catch(() => []),
       read($, prog),
+      currentScene($),
     ])
     // the "Wytłumacz" button shows only when the wytlumacz-mi mod is loaded
     const canExplain = cmds.some(c => c.name === 'wytlumacz')
@@ -233,7 +289,10 @@ export const register: Register = on => {
       limits: s.rateLimits,
       usd: s.cost?.usd,
     }
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const els = $.ui.resolve(e)
+    const { Box, Text, Button } = els
+    // Svg only on the desktop table (and mobile, which never draws this band)
+    const Svg = e.surface === 'desktop' && 'Svg' in els ? els.Svg : undefined
     const repo = cwd.split('/').pop()
     const over = p > 0 && (u.percent ?? 0) >= p
     const five = u.limits.find(l => l.kind === 'five_hour')
@@ -260,6 +319,60 @@ export const register: Register = on => {
       )
     }
     const reset = (l: typeof five) => (l?.resetsAt ? `↻${span(Date.parse(l.resetsAt) - now)}` : undefined)
+
+    // desktop: a ring per limit (clock for 5h, calendar for 7d), bold percent, dim reset beside it
+    // drawn even without a reading (rateLimits holds what the last API response reported, at times
+    // only seven_day): then a gray empty ring and "brak odczytu"
+    const limitRing = (label: string, l: Limit | undefined, icon: 'clock' | 'calendar') => {
+      if (!Svg) return null
+      if (!l)
+        return (
+          <Box flexDirection="row" alignItems="center" columnGap={1}>
+            <Svg source={ring(0, TONE_HEX.gray!, icon)} alt={`limit ${label}: brak odczytu`} width={30} height={30} />
+            <Text dimColor>{`${label} · brak odczytu`}</Text>
+          </Box>
+        )
+      const pct = Math.round(l.percentUsed)
+      const tail = l.resetsAt ? ` · reset za ${span(Date.parse(l.resetsAt) - now)}` : ''
+      return (
+        <Box flexDirection="row" alignItems="center" columnGap={1}>
+          <Svg
+            source={ring(l.percentUsed, TONE_HEX[tone(l.percentUsed)] ?? TONE_HEX.blue!, icon)}
+            alt={`limit ${label}: ${pct}%${tail}`}
+            width={30}
+            height={30}
+          />
+          <Text>
+            <Text bold>{`${pct}%`}</Text>
+            <Text dimColor>{`  ${label}${tail}`}</Text>
+          </Text>
+        </Box>
+      )
+    }
+
+    // desktop: ctx as a ring too (chip icon), colour per ctxTone, "⚠ granica" past the threshold
+    const ctxRing = () => {
+      if (!Svg) return null
+      const raw = u.percent ?? 0
+      const pct = Math.round(raw)
+      const color = ctxTone(raw, p)
+      const size = `${tokens(u.tokens ?? 0)}/${tokens(u.window)}`
+      return (
+        <Box flexDirection="row" alignItems="center" columnGap={1}>
+          <Svg
+            source={ring(raw, TONE_HEX[color] ?? TONE_HEX.blue!, 'chip')}
+            alt={`kontekst: ${pct}% · ${size}${over ? ' · granica' : ''}`}
+            width={30}
+            height={30}
+          />
+          <Text>
+            <Text bold>{`${pct}%`}</Text>
+            <Text dimColor>{`  ctx · ${size}`}</Text>
+            {over && <Text color={color}>{' ⚠ granica'}</Text>}
+          </Text>
+        </Box>
+      )
+    }
 
     const buttons = (
       <Box flexDirection="row" columnGap={1}>
@@ -312,26 +425,63 @@ export const register: Register = on => {
       )
     }
 
-    // Kris: 5 rows left half the band empty; two rows, columns side by side
+    // Kris: 5 rows left half the band empty; two rows, columns side by side.
+    const status = (
+      <Text>
+        {rec && <Text color="red" bold>{'● REC '}</Text>}
+        <Text bold>{repo}</Text>
+        {br && <Text color="green">{` ⎇ ${br}`}</Text>}
+        <Text dimColor>
+          {` · ${span(now - started)} · ${n} prompts`}
+          {/* recording mode masks amounts in the transcript; the band's cost is one too */}
+          {u.usd !== undefined && (rec ? ' · [kwota]' : ` · $${u.usd.toFixed(2)}`)}
+        </Text>
+      </Text>
+    )
+    const lastTurn = (sep: string) =>
+      turn && (
+        <Text dimColor>
+          last {secs(turn.ms)} · {turn.model.replace(/^claude-/, '')} · hit {turn.cachePct}%{sep}
+        </Text>
+      )
+
+    // Desktop (Svg in the table): two rows and Clawd beside them, no third row.
+    // Row 1: repo/branch/time/prompts/cost | last turn, then the buttons. Row 2: ctx/5h/7d rings.
+    // The cache countdown sits in the prompt footer instead (the SessionMode hook below)
+    if (Svg) {
+      return (
+        <Box flexDirection="column">
+          <Box flexDirection="row" justifyContent="space-between" alignItems="center" columnGap={3}>
+            <Box flexDirection="column" flexGrow={1}>
+              <Box flexDirection="row" justifyContent="space-between" alignItems="center" columnGap={3}>
+                {status}
+                <Box flexDirection="row" alignItems="center" columnGap={2}>
+                  {lastTurn('')}
+                  {buttons}
+                </Box>
+              </Box>
+              <Box flexDirection="row" alignItems="center" columnGap={3}>
+                {ctxRing()}
+                {limitRing('5h', five, 'clock')}
+                {limitRing('7d', week, 'calendar')}
+              </Box>
+            </Box>
+            {/* isInteractive: a sandboxed frame without scripts, where the SMIL frames run */}
+            <Svg source={clawd(sc).source} alt={clawd(sc).alt} width={200} height={50} isInteractive />
+          </Box>
+          {/* uthe explain row (wytlumacz-mi) sits under the band, one line apart */}
+          {below && <Box marginTop={1}>{below}</Box>}
+        </Box>
+      )
+    }
+
+    // no Svg in the table (no surface draws this band so today): the text band of 1.0
     return (
       <Box flexDirection="column">
         <Box flexDirection="row" justifyContent="space-between" columnGap={3}>
+          {status}
           <Text>
-            {rec && <Text color="red" bold>{'● REC '}</Text>}
-            <Text bold>{repo}</Text>
-            {br && <Text color="green">{` ⎇ ${br}`}</Text>}
-            <Text dimColor>
-              {` · ${span(now - started)} · ${n} prompts`}
-              {/* recording mode masks amounts in the transcript; the band's cost is one too */}
-              {u.usd !== undefined && (rec ? ' · [kwota]' : ` · $${u.usd.toFixed(2)}`)}
-            </Text>
-          </Text>
-          <Text>
-            {turn && (
-              <Text dimColor>
-                last {secs(turn.ms)} · {turn.model.replace(/^claude-/, '')} · hit {turn.cachePct}% ·{' '}
-              </Text>
-            )}
+            {lastTurn(' · ')}
             {cacheLine(cAt, now)}
           </Text>
         </Box>
@@ -343,8 +493,29 @@ export const register: Register = on => {
           {/* REC and Wytłumacz sit together as one pair, closer than the gauges */}
           {buttons}
         </Box>
-        {/* uthe explain row (wytlumacz-mi) sits under the band, one line apart */}
         {below && <Box marginTop={1}>{below}</Box>}
+      </Box>
+    )
+  })
+
+  // desktop: the cache countdown in the prompt footer, beside the session's mode labels (SessionMode).
+  // Terminal and IDE: untouched (there the countdown stays in the band)
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+    if (e.surface !== 'desktop') return next(e)
+    // tick is read so the 30 s timer redraws the footer too (a read while drawing subscribes the instance)
+    const [, at, now] = await Promise.all([read($, tick), read($, cacheAt), $.clock.now()])
+    const c = cacheDesktop(at, now)
+    // variant B: the engine draws it as one more dim mode label, no colour
+    if (FOOTER === 'modes') return next({ ...e, props: { ...e.props, modes: [...e.props.modes, c.text] } })
+    // variant A: the engine's own labels (or nothing, with no modes) and the coloured countdown after them
+    const below = await next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="row" alignItems="center" columnGap={1}>
+        {below}
+        <Text color={c.color} dimColor={!c.color}>
+          {c.text}
+        </Text>
       </Box>
     )
   })

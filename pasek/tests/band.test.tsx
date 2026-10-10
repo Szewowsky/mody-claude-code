@@ -26,7 +26,10 @@ test('desktop: full band with ctx; terminal and IDE: one slim row with cache and
     const ctx = await ui.find({ type: 'Text', text: /ctx/ } as never)
     if (surface === 'desktop') expect(ctx).toBeDefined()
     else expect(ctx).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /^cache -$/ } as never)).toBeDefined()
+    // desktop draws the cache countdown in the prompt footer (SessionMode, tests/desktop.test.tsx)
+    const cache = await ui.find({ type: 'Text', text: /^cache -$/ } as never)
+    if (surface === 'desktop') expect(cache).toBeUndefined()
+    else expect(cache).toBeDefined()
     // terminal/IDE buttons need ctrl+x tab first, so there they are command hints instead
     if (surface === 'desktop') expect(await ui.find({ key: 'rec' } as never)).toBeDefined()
     else {

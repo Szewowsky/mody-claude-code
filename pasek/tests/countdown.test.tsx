@@ -6,6 +6,7 @@ const USAGE = {
   rateLimits: [],
 }
 
+// the band's countdown lives on the terminal now; desktop has it in the status line (desktop.test.tsx)
 test('cache countdown falls as the clock moves', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   on('session.usage', () => ({ value: USAGE }) as never)
@@ -17,13 +18,12 @@ test('cache countdown falls as the clock moves', async ($, on) => {
   await $.session.start({ cwd: '/x/thumbforge', surface: 'desktop', isInteractive: true } as never)
   const ui = await $.ui.mount({
     plugin: 'pasek',
-    surface: 'desktop',
+    surface: 'terminal',
     component: 'AbovePrompt',
     props: { hasSurvey: false, isWorking: false, maxRows: 20, bodyColumns: 120 },
   } as never)
   expect(await ui.find({ type: 'Text', text: /cache ▰+▱* 1h 0m/ } as never)).toBeDefined()
   await clock.advance(10 * 60_000)
-  console.log(JSON.stringify(await ui.find({ type: 'Text', text: /cache / } as never)))
   expect(await ui.find({ type: 'Text', text: /cache ▰+▱* 50m/ } as never)).toBeDefined()
   await ui.unmount()
 })
