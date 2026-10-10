@@ -45,10 +45,10 @@ test('from the default 40% Handoff shows and runs the handoff skill asking for a
   expect((await $.command.run({ command: 'pasek', args: 'handoff' } as never)).text).toMatch(/\/x\/thumbforge\/\.claude\//)
   await clock.advance(100)
   expect(runs.map(r => r.command)).toEqual(['pasek:handoff', 'pasek:handoff'])
-  expect(runs[1].args).toBe(runs[0].args)
-  expect(runs[0].args).toMatch(/prompt/)
-  expect(runs[0].args).toMatch(/NIE w katalogu tymczasowym/)
-  expect(runs[0].args).toMatch(/\/x\/thumbforge\/\.claude\/handoff-\d{4}-\d{2}-\d{2}_/)
+  expect(runs[1]!.args).toBe(runs[0]!.args)
+  expect(runs[0]!.args).toMatch(/prompt/)
+  expect(runs[0]!.args).toMatch(/NIE w katalogu tymczasowym/)
+  expect(runs[0]!.args).toMatch(/\/x\/thumbforge\/\.claude\/handoff-\d{4}-\d{2}-\d{2}_/)
 })
 
 test('no handoff skill in the session: granica shows, but no button', async ($, on) => {
@@ -85,11 +85,18 @@ test('ctx colour follows the threshold: blue <35, yellow 35-45 (Handoff from 40)
   const runs: { command: string; args: string }[] = []
   base(on as never, () => pct, () => HANDOFF, runs)
   const cases: [number, string, boolean][] = [[34, 'blue', false], [35, 'yellow', false], [40, 'yellow', true], [45, 'yellow', true], [46, 'red', true]]
+  // on desktop ctx is a ring: its colour is the stroke in the SVG source (hex of the tone)
+  const HEX: Record<string, string> = { blue: '#4a8fe7', yellow: '#e0a400', red: '#e5484d' }
+  type SvgNode = { props: { alt: string; source: string } }
   for (const [p, color, button] of cases) {
     pct = p
     const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
-    const barNode = (await ui.find({ type: 'Text', text: /^[█░]+$/ } as never)) as never as { props: { color?: string } }
-    expect(barNode.props.color).toBe(color)
+    const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
+    const ctx = svgs.find(s => /^kontekst: /.test(s.props.alt))!
+    expect(ctx.props.alt).toMatch(new RegExp(`^kontekst: ${p}%`))
+    expect(ctx.props.source).toMatch(new RegExp(`stroke="${HEX[color]}"`))
+    for (const other of Object.values(HEX).filter(h => h !== HEX[color])) expect(ctx.props.source.includes(other)).toBe(false)
+    expect((await ui.find({ type: 'Text', text: /^[█░]+$/ } as never))).toBeUndefined()
     expect((await ui.find({ key: 'handoff' } as never)) !== undefined).toBe(button)
     await ui.unmount()
   }

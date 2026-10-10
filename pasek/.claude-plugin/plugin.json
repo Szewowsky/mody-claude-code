@@ -1,6 +1,6 @@
 {
   "name": "pasek",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Pasek nad promptem: repo, branch, koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff",
   "types": "./types/index.d.ts",
   "license": "MIT",
