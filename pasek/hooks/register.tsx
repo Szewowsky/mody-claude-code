@@ -1,8 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { LastTurn, Limit, Scene, Usage } from '../types'
-import { TONE_HEX, clawd, ring } from './art'
+import type { LastTurn, Limit, Scene, SceneChoice, Usage } from '../types'
+import { SCENE_IDS, SCENE_INFO, TONE_HEX, clawd, ring } from './art'
 
 const usage = atom({ plugin: 'pasek', key: 'usage' } as const, null)
 const branch = atom({ plugin: 'pasek', key: 'branch' } as const, '')
@@ -10,31 +10,66 @@ const prompts = atom({ plugin: 'pasek', key: 'prompts' } as const, 0)
 const last = atom({ plugin: 'pasek', key: 'last' } as const, null)
 const cacheAt = atom({ plugin: 'pasek', key: 'cacheAt' } as const, null)
 const tick = atom({ plugin: 'pasek', key: 'tick' } as const, 0)
+// every 10th tick (5 min): the desktop band reads this instead of tick, so the 30 s timer leaves it (and Clawd) alone
+const slow = atom({ plugin: 'pasek', key: 'slow' } as const, 0)
 // owned by the recording-mode mod; the band only reads it, so /record redraws the REC mark
 const recOn = atom({ plugin: 'record-mode', key: 'isOn' } as const, false)
 // context threshold for the handoff; /pasek prog sets it for this session only (0 = off)
 const prog = atom({ plugin: 'pasek', key: 'prog' } as const, 40)
 const warnedProg = atom({ plugin: 'pasek', key: 'warnedProg' } as const, false)
-// Clawd's scene on desktop: kept across sessions in $.store, mirrored here so /pasek scena redraws the band
+// Clawd's scene on desktop: the choice is kept across sessions in $.store (a scene or 'losowa'); this atom
+// holds the scene drawn in this session (for 'losowa' the one drawn at session.start), so /pasek scena redraws the band
 const scene = atom({ plugin: 'pasek', key: 'scene' } as const, null)
 const SCENE_KEY = 'scene'
 const DEFAULT_SCENE: Scene = 'plaza'
+const RANDOM = 'losowa'
 
-function parseScene(args: string): Scene | 'show' | null {
-  const a = args.trim().replace(/^scena\b/, '').trim().toLowerCase()
+// Polish letters to plain ones, so "dżungla", "góry" and "plaża" match too
+const PLAIN: Record<string, string> = { ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' }
+const plain = (s: string) => s.toLowerCase().replace(/[ąćęłńóśźż]/g, c => PLAIN[c] ?? c)
+
+function parseScene(args: string): SceneChoice | 'show' | null {
+  const a = plain(args.trim()).replace(/^scena\b/, '').trim()
   if (a === '') return 'show'
-  if (a === 'plaza' || a === 'plaża') return 'plaza'
-  if (a === 'kosmos' || a === 'space') return 'kosmos'
-  return null
+  if (a === RANDOM || a === 'random') return RANDOM
+  return SCENE_INFO.find(s => s.id === a || plain(s.pl) === a || s.aliases.includes(a))?.id ?? null
 }
 
-const asScene = (v: unknown): Scene | null => (v === 'plaza' || v === 'kosmos' ? v : null)
+const isScene = (v: unknown): v is Scene => SCENE_IDS.includes(v as Scene)
+const asChoice = (v: unknown): SceneChoice | null => (v === RANDOM || isScene(v) ? v : null)
+const sceneName = (id: Scene) => SCENE_INFO.find(s => s.id === id)?.pl ?? id
 
-// the session's copy first; a fresh session (or one before /pasek scena) falls back to the store
-async function currentScene($: EngineInterface): Promise<Scene> {
+// a different scene than the one drawn now, when there is one to avoid
+function randomScene(not?: Scene | null): Scene {
+  const pool = SCENE_IDS.filter(id => id !== not)
+  return pool[Math.floor(Math.random() * pool.length)] ?? DEFAULT_SCENE
+}
+
+const storedChoice = async ($: EngineInterface) => asChoice(await $.store.get(SCENE_KEY).catch(() => undefined))
+
+// the session's copy first; a fresh session (or one before /pasek scena) falls back to the store.
+// 'losowa' with no copy yet (a draw before session.start wrote one): a pick fixed by the session's start,
+// so every draw until then shows the same scene
+async function currentScene($: EngineInterface, startedAt: number): Promise<Scene> {
   const own = await read($, scene)
   if (own) return own
-  return asScene(await $.store.get(SCENE_KEY).catch(() => undefined)) ?? DEFAULT_SCENE
+  const stored = await storedChoice($)
+  if (stored === RANDOM) return SCENE_IDS[Math.abs(Math.floor(startedAt / 1000)) % SCENE_IDS.length] ?? DEFAULT_SCENE
+  return stored ?? DEFAULT_SCENE
+}
+
+function sceneList(current: Scene, choice: SceneChoice | null) {
+  const head =
+    choice === RANDOM
+      ? `Scena Clawda: losowa, w tej sesji ${sceneName(current)}.`
+      : `Scena Clawda: ${sceneName(current)} (zapamiętana na kolejne sesje).`
+  const rows = SCENE_INFO.map(s => `- ${s.id}${plain(s.pl) !== s.pl ? ` (${s.pl})` : ''}: ${s.desc}`)
+  return [
+    head,
+    'Do wyboru: /pasek scena <nazwa> albo krócej /pasek <nazwa>.',
+    ...rows,
+    `- ${RANDOM}: na każdym starcie sesji losuje jedną z ${SCENE_IDS.length} powyższych.`,
+  ].join('\n')
 }
 
 // Claude Code on a subscription caches prompts for 1h; an API-key session gets 5 min, make it a userConfig if that ever matters
@@ -107,6 +142,9 @@ function tokens(n: number) {
   return n >= 1e6 ? `${(n / 1e6).toFixed(n % 1e6 ? 1 : 0)}M` : `${Math.round(n / 1e3)}k`
 }
 
+// a write redraws every reader even when the value is the same, so unchanged values are not written
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
 async function refresh($: EngineInterface) {
   const u = await $.session.usage()
   // which limits the last API response reported (sometimes only seven_day): for the 5h ring diagnosis
@@ -118,14 +156,14 @@ async function refresh($: EngineInterface) {
     limits: u.rateLimits,
     usd: u.cost?.usd,
   }
-  await update($, usage, () => next)
+  if (!same(await read($, usage), next)) await update($, usage, () => next)
 }
 
 async function refreshBranch($: EngineInterface) {
   // one git call per turn, a fs watch on .git/HEAD if it ever lags
   const r = await $.process.run(['git', 'branch', '--show-current']).catch(() => null)
   const name = r && r.exitCode === 0 ? r.stdout.trim() : ''
-  await update($, branch, () => name)
+  if ((await read($, branch)) !== name) await update($, branch, () => name)
 }
 
 // desktop cache thresholds, apart from WARN_AT (toast) and the terminal cacheLine colours, which stay as they were:
@@ -149,12 +187,16 @@ const FOOTER = 'tree' as 'tree' | 'modes'
 
 let warned = false
 let timer: Timer | null = null
+let ticks = 0
+// the last session start the band saw, for a draw where $.session.usage() fails (see the AbovePrompt hook)
+let lastStarted: number | undefined
 
-// redraws the cache countdown and warns once before the cache goes cold.
+// redraws the cache countdown (terminal band, desktop footer) and warns once before the cache goes cold.
 // Restarted every turn: a timer started only at session.start died silently (the countdown sat
 // at 1h 0m) once the hook overran its budget waiting on the other mods' session.start beneath it.
-// 30 s, not 1 s: every redraw re-runs the band's dozen engine calls and re-sends the Clawd Svg
-// (up to ~19k characters), and whether the desktop keeps its animated frame across that is untested
+// 30 s, not 1 s: every redraw re-runs the band's dozen engine calls. The desktop band does not read tick at
+// all (its cache countdown is in the footer): it reads slow, bumped every 10th tick, so Clawd's Svg is not
+// re-sent every 30 s while its session time and reset times still move while idle
 function restartTimer($: EngineInterface) {
   timer?.cancel()
   timer = $.clock.every(30_000, async () => {
@@ -165,6 +207,7 @@ function restartTimer($: EngineInterface) {
       $.ui.toast(`Cache stygnie za ${Math.ceil(left / 60_000)} min - wyślij coś albo zrób handoff`, { timeoutMs: 15_000 })
     }
     await update($, tick, n => n + 1)
+    if (++ticks % 10 === 0) await update($, slow, n => n + 1)
   })
 }
 
@@ -173,12 +216,17 @@ export const register: Register = on => {
     // 1.2.0 pinned the cache countdown to the status line; a reload clears that line once, nothing sets it now
     $.ui.status(undefined)
     restartTimer($)
+    // 'losowa': a new scene for every session, written before the band first draws if it can be
+    if ((await storedChoice($)) === RANDOM) {
+      const pick = randomScene()
+      await update($, scene, () => pick)
+    }
     const out = await next(e)
     await Promise.all([refresh($), refreshBranch($)])
     await $.command.register({
       name: 'pasek',
-      description: 'Próg kontekstu dla Handoff (ta sesja), scena Clawda na desktopie (kosmos/plaza), handoff',
-      argumentHint: 'prog <1-99|off|reset> | kosmos | plaza | handoff',
+      description: 'Próg kontekstu dla Handoff (ta sesja), scena Clawda na desktopie (7 scen albo losowa), handoff',
+      argumentHint: 'prog <1-99|off|reset> | scena [nazwa|losowa] | handoff',
     })
     return out
   })
@@ -197,19 +245,30 @@ export const register: Register = on => {
       )
       return { text: `Odpalam handoff - zapisze się w ${cwd}/.claude/` }
     }
-    // a bare scene name (/pasek kosmos) needs no "scena": it can't be mistaken for prog or handoff
+    // a bare scene name (/pasek kosmos, /pasek losowa) needs no "scena": it can't be mistaken for prog or handoff
     const sc = parseScene(e.args)
-    if (/^scena\b/.test(e.args.trim()) || sc === 'plaza' || sc === 'kosmos') {
-      if (sc === 'show') return { text: `Scena Clawda: ${await currentScene($)} (do wyboru: kosmos, plaza).` }
-      if (sc === null) return { text: 'Użycie: /pasek kosmos · /pasek plaza' }
+    if (/^scena\b/.test(plain(e.args.trim())) || (sc !== 'show' && sc !== null)) {
+      if (sc === 'show') {
+        const started = await $.session.usage().then(u => u.startedAt, () => 0)
+        return { text: sceneList(await currentScene($, started), await storedChoice($)) }
+      }
+      if (sc === null) return { text: `Nie znam tej sceny. ${sceneList(await currentScene($, 0), await storedChoice($))}\nUżycie: /pasek scena <nazwa>` }
       await $.store.set(SCENE_KEY, sc)
+      if (sc === RANDOM) {
+        const pick = randomScene(await read($, scene))
+        await update($, scene, () => pick)
+        return { text: `Scena Clawda: losowa, teraz ${sceneName(pick)}. Na każdym starcie sesji wylosuję nową.` }
+      }
       await update($, scene, () => sc)
-      return { text: `Scena Clawda: ${sc} (zapamiętana na kolejne sesje).` }
+      return { text: `Scena Clawda: ${sceneName(sc)} (zapamiętana na kolejne sesje).` }
     }
     const v = parseProg(e.args)
     const now = await read($, prog)
     if (v === 'show') return { text: now ? `Próg kontekstu: ${now}% (domyślnie ${DEFAULT_PROG}%).` : 'Próg kontekstu wyłączony.' }
-    if (v === null) return { text: 'Użycie: /pasek kosmos · /pasek plaza · /pasek prog 20 · /pasek prog off · /pasek prog reset · /pasek handoff' }
+    if (v === null)
+      return {
+        text: 'Użycie: /pasek scena (lista scen) · /pasek kosmos · /pasek losowa · /pasek prog 20 · /pasek prog off · /pasek prog reset · /pasek handoff',
+      }
     const next = v === 'off' ? 0 : v
     await update($, prog, () => next)
     await update($, warnedProg, () => false)
@@ -262,38 +321,46 @@ export const register: Register = on => {
     // what the mods and the engine beneath draw stays under the band instead of being replaced
     const below = await next(e)
 
-    // drawing is pure: no state writes here (a write skips the hook and the band vanishes).
-    // The usage atom is read only so session.measure redraws us; figures come fresh.
-    const [, , br, n, turn, cwd, now, s, cAt, rec, cmds, p, sc] = await Promise.all([
-      read($, usage),
-      read($, tick),
-      read($, branch),
-      read($, prompts),
-      read($, last),
-      $.session.cwd(),
-      $.clock.now(),
-      $.session.usage(),
-      read($, cacheAt),
-      read($, recOn),
-      $.command.list().catch(() => []),
-      read($, prog),
-      currentScene($),
-    ])
-    // the "Wytłumacz" button shows only when the wytlumacz-mi mod is loaded
-    const canExplain = cmds.some(c => c.name === 'wytlumacz')
-    const handoff = handoffCommand(cmds)
-    const started = s.startedAt
-    const u: Usage = {
-      tokens: s.context.tokens,
-      window: s.context.window,
-      percent: s.context.percent,
-      limits: s.rateLimits,
-      usd: s.cost?.usd,
-    }
     const els = $.ui.resolve(e)
     const { Box, Text, Button } = els
     // Svg only on the desktop table (and mobile, which never draws this band)
     const Svg = e.surface === 'desktop' && 'Svg' in els ? els.Svg : undefined
+
+    // drawing is pure: no state writes here (a write skips the hook and the band vanishes).
+    // The usage atom is read so session.measure redraws us; figures come fresh, the atom stands in if they can't.
+    // A hook that throws is skipped and the band shows only what is beneath it: Clawd would vanish for that
+    // draw and come back with its animation started over, so every engine call here has a fallback.
+    // The desktop band reads neither tick nor cacheAt (its cache countdown is in the footer): the 30 s timer
+    // and the cacheAt write of every prompt and turn leave it alone; slow keeps its times moving while idle.
+    const [kept, , br, n, turn, cwd, now, s, cAt, rec, cmds, p] = await Promise.all([
+      read($, usage),
+      Svg ? read($, slow) : read($, tick),
+      read($, branch),
+      read($, prompts),
+      read($, last),
+      $.session.cwd().catch(() => ''),
+      $.clock.now(),
+      $.session.usage().catch(() => null),
+      Svg ? null : read($, cacheAt),
+      read($, recOn),
+      $.command.list().catch(() => []),
+      read($, prog),
+    ])
+    // the "Wytłumacz" button shows only when the wytlumacz-mi mod is loaded
+    const canExplain = cmds.some(c => c.name === 'wytlumacz')
+    const handoff = handoffCommand(cmds)
+    if (s) lastStarted = s.startedAt
+    const started = s?.startedAt ?? lastStarted ?? now
+    const u: Usage = s
+      ? {
+          tokens: s.context.tokens,
+          window: s.context.window,
+          percent: s.context.percent,
+          limits: s.rateLimits,
+          usd: s.cost?.usd,
+        }
+      : (kept ?? { window: 0, limits: [] })
+    const sc = Svg ? await currentScene($, started) : DEFAULT_SCENE
     const repo = cwd.split('/').pop()
     const over = p > 0 && (u.percent ?? 0) >= p
     const five = u.limits.find(l => l.kind === 'five_hour')
@@ -450,6 +517,8 @@ export const register: Register = on => {
     // Row 1: repo/branch/time/prompts/cost | last turn, then the buttons. Row 2: ctx/5h/7d rings.
     // The cache countdown sits in the prompt footer instead (the SessionMode hook below)
     if (Svg) {
+      // the cached markup of this scene: the same string object on every draw (see clawd in art.ts)
+      const art = clawd(sc)
       return (
         <Box flexDirection="column">
           <Box flexDirection="row" justifyContent="space-between" alignItems="center" columnGap={3}>
@@ -467,8 +536,14 @@ export const register: Register = on => {
                 {limitRing('7d', week, 'calendar')}
               </Box>
             </Box>
-            {/* isInteractive: a sandboxed frame without scripts, where the SMIL frames run */}
-            <Svg source={clawd(sc).source} alt={clawd(sc).alt} width={200} height={50} isInteractive />
+            {/* isInteractive: a sandboxed frame without scripts, where the SMIL frames run. Clawd sits alone in
+                a Box keyed by its scene, at a fixed place in the tree, with the same source and alt on every draw:
+                a redraw of the band hands the surface an identical element. The key goes on the Box because the
+                engine passes on only the props an element declares, and SvgProps has no key (a key on the Svg
+                never reaches the surface) */}
+            <Box key={`clawd-${sc}`}>
+              <Svg source={art.source} alt={art.alt} width={200} height={50} isInteractive />
+            </Box>
           </Box>
           {/* uthe explain row (wytlumacz-mi) sits under the band, one line apart */}
           {below && <Box marginTop={1}>{below}</Box>}
