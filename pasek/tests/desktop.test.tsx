@@ -103,7 +103,8 @@ test('/pasek scena kosmos switches Clawd to space, plaza switches back, junk exp
   expect(space.props.source.length < 30_000).toBe(true)
   expect((await $.command.run({ command: 'pasek', args: 'scena' } as never)).text).toMatch(/Scena Clawda: kosmos/)
   expect((await $.command.run({ command: 'pasek', args: 'scena mars' } as never)).text).toMatch(/Użycie/)
-  expect((await $.command.run({ command: 'pasek', args: 'scena plaza' } as never)).text).toMatch(/plaza/)
+  // the reply names the scene in Polish
+  expect((await $.command.run({ command: 'pasek', args: 'scena plaza' } as never)).text).toMatch(/Scena Clawda: plaża/)
   expect((await clawd()).props.alt).toMatch(/plaży/)
 })
 
@@ -119,7 +120,7 @@ test('/pasek kosmos and /pasek plaza work without the word scena, bare /pasek st
   }
   expect((await $.command.run({ command: 'pasek', args: 'kosmos' } as never)).text).toMatch(/Scena Clawda: kosmos/)
   expect((await clawd()).props.alt).toMatch(/kosmos/)
-  expect((await $.command.run({ command: 'pasek', args: 'Plaża' } as never)).text).toMatch(/Scena Clawda: plaza/)
+  expect((await $.command.run({ command: 'pasek', args: 'Plaża' } as never)).text).toMatch(/Scena Clawda: plaża/)
   expect((await clawd()).props.alt).toMatch(/plaży/)
   expect((await $.command.run({ command: 'pasek', args: '' } as never)).text).toMatch(/Próg kontekstu/)
   // junk lists the scene shortcut too, so nobody has to guess the word scena

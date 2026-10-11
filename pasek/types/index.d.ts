@@ -7,8 +7,10 @@ export type Usage = {
   usd?: number
 }
 export type LastTurn = { ms: number; model: string; cachePct: number }
-// scena Clawda na desktopie; /pasek scena plaza|kosmos, zapamiętana w $.store pod kluczem 'scene'
-export type Scene = 'plaza' | 'kosmos'
+// scena Clawda na desktopie; /pasek scena <nazwa>, zapamiętana w $.store pod kluczem 'scene'
+export type Scene = 'plaza' | 'kosmos' | 'nurek' | 'dzungla' | 'biuro' | 'gory' | 'neon'
+// co trzyma $.store: konkretna scena albo 'losowa' (na każdym starcie sesji losuje jedną z Scene)
+export type SceneChoice = Scene | 'losowa'
 
 declare module 'claude-code' {
   interface PluginState {
@@ -19,9 +21,12 @@ declare module 'claude-code' {
       last: LastTurn | null
       cacheAt: number | null
       tick: number
+      // co 10. tick (5 min): desktopowy pasek czyta to zamiast tick, więc timer 30 s nie przerysowuje Clawda
+      slow: number
       prog: number
       warnedProg: boolean
-      // kopia sceny ze $.store na tę sesję (null = jeszcze nie wczytana), żeby zmiana przerysowała pasek
+      // scena rysowana w tej sesji (null = jeszcze nie ustalona, wtedy liczy się $.store); przy 'losowa'
+      // ta wylosowana na session.start; zmiana przez /pasek scena przerysowuje pasek
       scene: Scene | null
     }
     // record-mode's own value (same type as its contract); pasek only reads it for the REC mark
