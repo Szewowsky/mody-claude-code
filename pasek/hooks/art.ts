@@ -20,6 +20,8 @@ const ICONS = {
   calendar: '<rect x="10" y="11" width="10" height="9" rx="1.5"/><path d="M10 14.2h10M12.6 9.6v2.8M17.4 9.6v2.8"/>',
   // chip: kwadrat z nóżkami po bokach (kontekst modelu)
   chip: '<rect x="11.5" y="11.5" width="7" height="7" rx="1"/><path d="M13.5 9.5v2M16.5 9.5v2M13.5 18.5v2M16.5 18.5v2M9.5 13.5h2M9.5 16.5h2M18.5 13.5h2M18.5 16.5h2"/>',
+  // słońce: tarcza + 4 promienie (limit dzienny z moda limit-dzienny)
+  sun: '<circle cx="15" cy="15" r="3"/><path d="M15 9.5v1.8M15 18.7v1.8M9.5 15h1.8M18.7 15h1.8"/>',
 } as const
 
 export type RingIcon = keyof typeof ICONS

@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { LastTurn, Limit, Scene, SceneChoice, Usage } from '../types'
+import type { DailyLimit, LastTurn, Limit, Scene, SceneChoice, Usage } from '../types'
 import { SCENE_IDS, SCENE_INFO, TONE_HEX, clawd, ring } from './art'
 
 const usage = atom({ plugin: 'pasek', key: 'usage' } as const, null)
@@ -14,6 +14,8 @@ const tick = atom({ plugin: 'pasek', key: 'tick' } as const, 0)
 const slow = atom({ plugin: 'pasek', key: 'slow' } as const, 0)
 // owned by the recording-mode mod; the band only reads it, so /record redraws the REC mark
 const recOn = atom({ plugin: 'record-mode', key: 'isOn' } as const, false)
+// owned by the limit-dzienny mod (the weekly limit cut into 7 days); read only, so its refresh redraws the "dziś" ring
+const daily = atom({ plugin: 'limit-dzienny', key: 'day' } as const, null)
 // context threshold for the handoff; /pasek prog sets it for this session only (0 = off)
 const prog = atom({ plugin: 'pasek', key: 'prog' } as const, 40)
 const warnedProg = atom({ plugin: 'pasek', key: 'warnedProg' } as const, false)
@@ -132,6 +134,9 @@ function span(ms: number) {
   if (h > 0) return `${h}h ${m % 60}m`
   return `${m}m`
 }
+
+// Polish number: one decimal, comma, no ",0"
+const pl = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '')
 
 function secs(ms: number) {
   const s = Math.round(ms / 1000)
@@ -332,7 +337,7 @@ export const register: Register = on => {
     // draw and come back with its animation started over, so every engine call here has a fallback.
     // The desktop band reads neither tick nor cacheAt (its cache countdown is in the footer): the 30 s timer
     // and the cacheAt write of every prompt and turn leave it alone; slow keeps its times moving while idle.
-    const [kept, , br, n, turn, cwd, now, s, cAt, rec, cmds, p] = await Promise.all([
+    const [kept, , br, n, turn, cwd, now, s, cAt, rec, cmds, p, dz] = await Promise.all([
       read($, usage),
       Svg ? read($, slow) : read($, tick),
       read($, branch),
@@ -345,6 +350,7 @@ export const register: Register = on => {
       read($, recOn),
       $.command.list().catch(() => []),
       read($, prog),
+      read($, daily),
     ])
     // the "Wytłumacz" button shows only when the wytlumacz-mi mod is loaded
     const canExplain = cmds.some(c => c.name === 'wytlumacz')
@@ -389,7 +395,7 @@ export const register: Register = on => {
     const reset = (l: typeof five) => (l?.resetsAt ? `↻${span(Date.parse(l.resetsAt) - now)}` : undefined)
 
     // desktop: a ring per limit (clock for 5h, calendar for 7d), bold percent, dim reset beside it
-    // drawn even without a reading (rateLimits holds what the last API response reported, at times
+    // 7d is drawn even without a reading (rateLimits holds what the last API response reported, at times
     // only seven_day): then a gray empty ring and "brak odczytu"
     const limitRing = (label: string, l: Limit | undefined, icon: 'clock' | 'calendar') => {
       if (!Svg) return null
@@ -413,6 +419,28 @@ export const register: Register = on => {
           <Text>
             <Text bold>{`${pct}%`}</Text>
             <Text dimColor>{`  ${label}${tail}`}</Text>
+          </Text>
+        </Box>
+      )
+    }
+
+    // desktop: today's 1/7 of the weekly limit (sun icon), from the limit-dzienny mod; a spare from the days
+    // before shows beside it, past 100% the percent keeps counting (red)
+    const dayRing = (d: DailyLimit) => {
+      if (!Svg) return null
+      const pct = Math.round(d.todayPct)
+      const tail = ` · nowy dzień za ${span(d.nextDayAt - now)}${d.spare > 0 ? ` · zapas ${pl(d.spare)}%` : ''}`
+      return (
+        <Box flexDirection="row" alignItems="center" columnGap={1}>
+          <Svg
+            source={ring(d.todayPct, TONE_HEX[tone(d.todayPct)] ?? TONE_HEX.blue!, 'sun')}
+            alt={`limit dziś: ${pct}%${tail}`}
+            width={30}
+            height={30}
+          />
+          <Text>
+            <Text bold>{`${pct}%`}</Text>
+            <Text dimColor>{`  dziś${tail}`}</Text>
           </Text>
         </Box>
       )
@@ -483,6 +511,7 @@ export const register: Register = on => {
             <Text>
               {rec && <Text color="red" bold>{'● REC  '}</Text>}
               {cacheLine(cAt, now)}
+              {dz && <Text color={tone(dz.todayPct)}>{`   dziś ${Math.round(dz.todayPct)}%`}</Text>}
               {over && <Text color={ctxTone(pct, p)}>{`   ⚠ granica ctx ${pct}%`}</Text>}
               {over && handoff && <Text color={ctxTone(pct, p)} bold>{' → /pasek handoff'}</Text>}
             </Text>
@@ -532,7 +561,9 @@ export const register: Register = on => {
               </Box>
               <Box flexDirection="row" alignItems="center" columnGap={3}>
                 {ctxRing()}
-                {limitRing('5h', five, 'clock')}
+                {/* 5h only when the API reports it (a weekly-only plan such as Ultra never does) */}
+                {five && limitRing('5h', five, 'clock')}
+                {dz && dayRing(dz)}
                 {limitRing('7d', week, 'calendar')}
               </Box>
             </Box>
@@ -565,6 +596,7 @@ export const register: Register = on => {
           {/* ufrom the threshold the Handoff button shows; colour per ctxTone */}
           {gauge('ctx', u.percent ?? 0, `${tokens(u.tokens ?? 0)}/${tokens(u.window)}${over ? ' ⚠ granica' : ''}`, ctxTone(u.percent ?? 0, p))}
           {five && gauge('5h', five.percentUsed, reset(five))}
+          {dz && gauge('dziś', dz.todayPct, `↻${span(dz.nextDayAt - now)}`)}
           {week && gauge('week', week.percentUsed, reset(week))}
           {/* REC and Wytłumacz sit together as one pair, closer than the gauges */}
           {buttons}

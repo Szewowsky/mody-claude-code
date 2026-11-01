@@ -59,7 +59,7 @@ test('desktop: ctx/5h/7d rings with percent in alt, Clawd on the beach, no cache
   await ui.unmount()
 })
 
-test('desktop without a five_hour reading: still 2 limit rings, the 5h one gray "brak odczytu"', async ($, on) => {
+test('desktop without a five_hour reading (weekly-only plan): no 5h ring, only 7d', async ($, on) => {
   mock.clock(on, { now: NOW })
   base(on as never, { ...USAGE, rateLimits: USAGE.rateLimits.filter(l => l.kind !== 'five_hour') })
   const logs: string[] = []
@@ -70,13 +70,10 @@ test('desktop without a five_hour reading: still 2 limit rings, the 5h one gray 
   const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
   const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
   const rings = svgs.filter(s => /^limit /.test(s.props.alt))
-  expect(rings.length).toBe(2)
-  expect(rings[0]!.props.alt).toBe('limit 5h: brak odczytu')
-  expect(rings[0]!.props.source).toMatch(/M15 12.2V15/) // clock icon on 5h
-  expect(rings[0]!.props.source.includes('stroke-dashoffset')).toBe(false) // empty ring
-  expect(rings[1]!.props.alt).toMatch(/^limit 7d: 9%/)
-  expect(rings[1]!.props.source).toMatch(/<rect x="10" y="11"/) // calendar icon on 7d
-  expect(await ui.find({ type: 'Text', text: /^5h · brak odczytu$/ } as never)).toBeDefined()
+  expect(rings.length).toBe(1)
+  expect(rings[0]!.props.alt).toMatch(/^limit 7d: 9%/)
+  expect(rings[0]!.props.source).toMatch(/<rect x="10" y="11"/) // calendar icon on 7d
+  expect(await ui.find({ type: 'Text', text: /5h/ } as never)).toBeUndefined()
   await ui.unmount()
   // session.measure logs which limit kinds the API reported, to the debug log
   await $.session.measure({} as never).catch(() => undefined)
@@ -224,4 +221,65 @@ test('terminal and IDE SessionMode: untouched, no cache added', async ($, on) =>
     expect((await ui.findAll({ type: 'Text' } as never)).length).toBe(1)
     await ui.unmount()
   }
+})
+
+// what the limit-dzienny mod keeps in its atom: day 3, 62% of today's 1/7 eaten, a new day in 5h 30m
+const DAILY = { day: 3, todayPct: 62, spare: 0, nextDayAt: NOW + (5 * 60 + 30) * 60_000 }
+const daily = (on: never, value: unknown) =>
+  (on as (...a: unknown[]) => void)('state.get', { plugin: 'limit-dzienny', key: 'day' }, () => ({ value: { value, version: 1 } }) as never)
+const weekly = { ...USAGE, rateLimits: USAGE.rateLimits.filter(l => l.kind !== 'five_hour') }
+
+test('limit-dzienny on, weekly-only plan: a "dziś" ring (sun) between ctx and 7d', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  base(on as never, weekly)
+  daily(on as never, DAILY)
+  const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
+  const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
+  const rings = svgs.filter(s => /^limit /.test(s.props.alt))
+  expect(rings.map(r => r.props.alt.split(':')[0])).toEqual(['limit dziś', 'limit 7d'])
+  expect(rings[0]!.props.alt).toBe('limit dziś: 62% · nowy dzień za 5h 30m')
+  expect(rings[0]!.props.source).toMatch(/<circle cx="15" cy="15" r="3"\/>/) // sun icon
+  expect(rings[0]!.props.source).toMatch(/stroke="#e0a400"/) // 62% = yellow
+  expect(await ui.find({ type: 'Text', text: /^ {2}dziś · nowy dzień za 5h 30m$/ } as never)).toBeDefined()
+  await ui.unmount()
+})
+
+test('"dziś" ring: a spare from the days before shows beside it', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  base(on as never, weekly)
+  daily(on as never, { ...DAILY, todayPct: 0, spare: 8.57 })
+  const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /zapas 8,6%/ } as never)).toBeDefined()
+  await ui.unmount()
+})
+
+test('"dziś" over the limit: red ring with the real percent', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  base(on as never, weekly)
+  daily(on as never, { ...DAILY, todayPct: 130 })
+  const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
+  const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
+  const day = svgs.find(s => /^limit dziś/.test(s.props.alt))!
+  expect(day.props.alt).toMatch(/^limit dziś: 130%/)
+  expect(day.props.source).toMatch(/stroke="#e5484d"/)
+  await ui.unmount()
+})
+
+test('a plan with 5h and limit-dzienny on: ctx, 5h, dziś, 7d', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  base(on as never)
+  daily(on as never, DAILY)
+  const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
+  const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
+  expect(svgs.filter(s => /^limit /.test(s.props.alt)).map(r => r.props.alt.split(':')[0])).toEqual(['limit 5h', 'limit dziś', 'limit 7d'])
+  await ui.unmount()
+})
+
+test('terminal: "dziś 62%" in the one-row band', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  base(on as never, weekly)
+  daily(on as never, DAILY)
+  const ui = await $.ui.mount({ plugin: 'pasek', surface: 'terminal', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /dziś 62%/ } as never)).toBeDefined()
+  await ui.unmount()
 })

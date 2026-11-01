@@ -1,6 +1,6 @@
 # Mody do Claude Code
 
-Siedem modów do Claude Code po polsku, od Roberta Szewczyka i społeczności [Operatorzy AI](https://swiy.co/operatorzyaiyt). Wszystkie na licencji MIT: instaluj, przerabiaj, wysyłaj swoje.
+Osiem modów do Claude Code po polsku, od Roberta Szewczyka i społeczności [Operatorzy AI](https://swiy.co/operatorzyaiyt). Wszystkie na licencji MIT: instaluj, przerabiaj, wysyłaj swoje.
 
 Mod to plugin Claude Code zbudowany z funkcji-hooków. Potrafi rysować pasek nad promptem, panel obok rozmowy, toast albo linię statusu. Potrafi też zatrzymać, przepisać albo zareagować na wywołanie narzędzia, dodać komendę `/slash` i zapytać model. Mody przeładowują się na żywo, gdy je edytujesz.
 
@@ -8,7 +8,8 @@ Film, w którym to wszystko pokazuję i buduję na żywo: [NOWOŚĆ w Claude Cod
 
 | Mod | Kod | Komenda | Co robi |
 | --- | --- | --- | --- |
-| [pasek](#pasek) | [`pasek/`](pasek/) | `/pasek` | Pasek nad promptem: koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff |
+| [pasek](#pasek) | [`pasek/`](pasek/) | `/pasek` | Pasek nad promptem: koszt, kontekst, limity 5h, dzienny i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff |
+| [limit-dzienny](#limit-dzienny) | [`limit-dzienny/`](limit-dzienny/) | `/limit` | Dzieli tygodniowy limit na 7 dni: ile z dzisiejszej 1/7 zjedzone, zapas i ostrzeżenia przy 80% i 100% dnia |
 | [record-mode](#record-mode) | [`record-mode/`](record-mode/) | `/record on` | Zasłania na ekranie maile, klucze API, kwoty i ścieżki domowe; model dalej widzi prawdziwy tekst |
 | [wytlumacz-mi](#wytlumacz-mi) | [`wytlumacz-mi/`](wytlumacz-mi/) | `/wytlumacz` | Tłumaczy po polsku, co Claude właśnie zrobił, i streszcza rozmowę po powrocie do sesji |
 | [bezpiecznik](#bezpiecznik) | [`bezpiecznik/`](bezpiecznik/) | `/bezpiecznik` | `rm -rf`, `git push --force`, `DROP`, `curl \| sh` zatrzymują się i czekają na Twoje potwierdzenie |
@@ -64,7 +65,7 @@ Dwa wiersze nad promptem: repo i branch, czas sesji, liczba promptów, koszt, os
 - **REC.** Przycisk włącza tryb nagrywania z modu `record-mode` (jeśli jest zainstalowany). Kwoty na pasku zmieniają się wtedy na `[kwota]`.
 - **Wytłumacz.** Przycisk z modu `wytlumacz-mi` (jeśli jest zainstalowany) siedzi obok REC.
 
-W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są repo, branch, czas, prompty i koszt, a po prawej ostatnia tura i przyciski. W drugim kontekst oraz limity 5h i 7d jako pierścienie z ikoną (chip, zegar, kalendarz), procentem i dopiskiem (`33%  ctx · 331k/1M`, `32%  5h · reset za 4h 2m`). Kolor kontekstu idzie za progiem Handoff, a po jego przekroczeniu dochodzi `⚠ granica`. Gdy API nie zgłosiło limitu, pierścień jest szary z napisem `5h · brak odczytu`. Po prawej stronie siedzi animowany pixel-art Clawd w czarnych okularach, w jednej z siedmiu scen:
+W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są repo, branch, czas, prompty i koszt, a po prawej ostatnia tura i przyciski. W drugim kontekst oraz limity jako pierścienie z ikoną (chip, zegar, słońce, kalendarz), procentem i dopiskiem (`33%  ctx · 331k/1M`, `32%  5h · reset za 4h 2m`). Kolor kontekstu idzie za progiem Handoff, a po jego przekroczeniu dochodzi `⚠ granica`. Pierścień 5h pokazuje się tylko wtedy, gdy API go zgłasza (plan z samym limitem tygodniowym, np. Ultra, go nie ma). Z modem `limit-dzienny` dochodzi pierścień `dziś` (`62%  dziś · nowy dzień za 5h 30m`), a w terminalu `dziś 62%`. Gdy API nie zgłosiło limitu tygodniowego, jego pierścień jest szary z napisem `7d · brak odczytu`. Po prawej stronie siedzi animowany pixel-art Clawd w czarnych okularach, w jednej z siedmiu scen:
 
 | Scena | Co widać |
 | --- | --- |
@@ -78,7 +79,20 @@ W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są
 
 Scenę zmienisz komendą `/pasek scena <nazwa>` albo krócej `/pasek <nazwa>`. Działają też polskie znaki (`dżungla`, `góry`, `plaża`) i nazwy angielskie (`beach`, `space`, `diver`, `jungle`, `office`, `mountains`, `cyberpunk`). Samo `/pasek scena` pokazuje bieżącą scenę i listę wszystkich z opisami. `/pasek scena losowa` losuje scenę na każdym starcie sesji. Wybór zostaje na kolejne sesje. Animacja jest stabilna: przy każdym odświeżeniu paska (nowy prompt, koniec tury) Clawd dostaje ten sam obraz w tym samym miejscu, więc nie ma powodu mrugać ani zaczynać od nowa, a licznik cache nie przerysowuje już paska co 30 sekund (na desktopie pasek odświeża się sam co 5 minut). Licznik cache stoi w stopce pod polem promptu, obok etykiet trybu sesji (`cache 42 min`), i zmienia kolor: zielony powyżej 30 minut, żółty od 30 do 15, czerwony poniżej 15 i przy `cache cold`. W terminalu i VS Code pasek zostaje taki jak był.
 
-Pasek działa sam. `record-mode` i `wytlumacz-mi` tylko dokładają do niego swoje przyciski.
+Pasek działa sam. `record-mode` i `wytlumacz-mi` tylko dokładają do niego swoje przyciski, a `limit-dzienny` pierścień `dziś`.
+
+### limit-dzienny
+
+[Kod](./limit-dzienny) · [hooks/register.tsx](./limit-dzienny/hooks/register.tsx) · `claude --plugin-dir ~/mody-claude-code/limit-dzienny`
+
+Na planie z samym limitem tygodniowym nie ma okna 5h, które pilnowało tempa. Ten mod tnie tydzień na 7 równych dni, liczonych od godziny resetu (reset w środę o 14:00 = każdy dzień trwa od 14:00 do 14:00). Każdy dzień dostaje 1/7 limitu, czyli około 14,3%.
+
+- **Tempo z przenoszeniem.** Do końca dnia 3 wolno zużyć 3/7 tygodnia. Czego nie zużyjesz, przechodzi dalej jako zapas, który schodzi przed dzisiejszą 1/7.
+- **Bez zapisanego stanu.** Wszystko wynika z % tygodnia z API i z zegara, więc liczy się też zużycie w claude.ai i na innych urządzeniach.
+- **Ostrzeżenia.** Toast przy 80% i 100% limitu dnia, raz na próg dziennie, także między sesjami.
+- **`/limit`** pokazuje dzień tygodnia limitu, ile zjedzone, zapas oraz kiedy nowy dzień i reset tygodnia.
+
+Najlepiej działa z `pasek`, który rysuje pierścień `dziś`. Bez paska zostają toasty i `/limit`.
 
 ### record-mode
 
