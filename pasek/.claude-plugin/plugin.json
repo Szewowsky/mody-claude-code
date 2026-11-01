@@ -1,7 +1,7 @@
 {
   "name": "pasek",
-  "version": "1.5.0",
-  "description": "Pasek nad promptem: repo, branch, koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff",
+  "version": "1.6.0",
+  "description": "Pasek nad promptem: repo, branch, koszt, kontekst, limity 5h, dzienny (z modem limit-dzienny) i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff",
   "types": "./types/index.d.ts",
   "license": "MIT",
   "author": { "name": "Robert Szewczyk", "url": "https://github.com/Szewowsky" },

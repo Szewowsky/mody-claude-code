@@ -1,6 +1,6 @@
 {
   "name": "mody-claude-code",
-  "description": "Mody do Claude Code od Roberta Szewczyka i społeczności Operatorzy AI: pasek zużycia, tryb nagrywania, Wytłumacz mi, Tetris",
+  "description": "Mody do Claude Code od Roberta Szewczyka i społeczności Operatorzy AI: pasek zużycia, limit dzienny, tryb nagrywania, Wytłumacz mi, Tetris",
   "owner": {
     "name": "Robert Szewczyk",
     "url": "https://github.com/Szewowsky"
@@ -9,7 +9,12 @@
     {
       "name": "pasek",
       "source": "./pasek",
-      "description": "Pasek nad promptem: koszt, kontekst, limity 5h i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff"
+      "description": "Pasek nad promptem: koszt, kontekst, limity 5h, dzienny i tygodniowy, licznik ciepłego cache, przyciski REC i Handoff"
+    },
+    {
+      "name": "limit-dzienny",
+      "source": "./limit-dzienny",
+      "description": "Dzieli tygodniowy limit na 7 dni: ile z dzisiejszej 1/7 zjedzone, zapas i ostrzeżenia przy 80% i 100% dnia"
     },
     {
       "name": "record-mode",

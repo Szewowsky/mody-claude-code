@@ -12,6 +12,9 @@ export type Scene = 'plaza' | 'kosmos' | 'nurek' | 'dzungla' | 'biuro' | 'gory' 
 // co trzyma $.store: konkretna scena albo 'losowa' (na każdym starcie sesji losuje jedną z Scene)
 export type SceneChoice = Scene | 'losowa'
 
+// co pasek czyta z moda limit-dzienny (tylko pola, które rysuje; pełny typ w limit-dzienny/types)
+export type DailyLimit = { day: number; todayPct: number; spare: number; nextDayAt: number }
+
 declare module 'claude-code' {
   interface PluginState {
     'pasek': {
@@ -31,5 +34,7 @@ declare module 'claude-code' {
     }
     // record-mode's own value (same type as its contract); pasek only reads it for the REC mark
     'record-mode': { isOn: boolean }
+    // limit-dzienny's own value; pasek only reads it for the "dziś" ring (null = mod off or no weekly reading)
+    'limit-dzienny': { day: DailyLimit | null }
   }
 }
