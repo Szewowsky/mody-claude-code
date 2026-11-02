@@ -566,7 +566,8 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column">
           <Box flexDirection="row" justifyContent="space-between" alignItems="center" columnGap={3}>
-            <Box flexDirection="column" flexGrow={1}>
+            {/* rowGap sm: a little air between the status row and the rings, which sat right under it */}
+            <Box flexDirection="column" flexGrow={1} rowGap="sm">
               <Box flexDirection="row" justifyContent="space-between" alignItems="center" columnGap={3}>
                 {status}
                 <Box flexDirection="row" alignItems="center" columnGap={2}>
