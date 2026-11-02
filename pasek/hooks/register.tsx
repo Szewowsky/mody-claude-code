@@ -222,6 +222,9 @@ function restartTimer($: EngineInterface) {
   })
 }
 
+// REC's label, shared by the band (no desktop) and the desktop footer
+const recLabel = (rec: boolean) => (rec ? '● Stop REC' : 'REC')
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     // 1.2.0 pinned the cache countdown to the status line; a reload clears that line once, nothing sets it now
@@ -376,7 +379,13 @@ export const register: Register = on => {
     const repo = cwd.split('/').pop()
     const over = p > 0 && (u.percent ?? 0) >= p
     const five = u.limits.find(l => l.kind === 'five_hour')
-    const week = u.limits.find(l => l.kind === 'seven_day')
+    const header = u.limits.find(l => l.kind === 'seven_day')
+    // limit-dzienny also reads `claude /usage` (the whole account), which runs ahead of this session's header:
+    // the 7d ring takes the higher of the two, so it never lags the "dziś" ring beside it (usage only grows in a week)
+    const week: Limit | undefined =
+      dz?.used !== undefined && (!header || dz.used > header.percentUsed)
+        ? { kind: 'seven_day', percentUsed: dz.used, resetsAt: header?.resetsAt ?? (dz.resetsAt ? new Date(dz.resetsAt).toISOString() : undefined) }
+        : header
 
     const gauge = (label: string, pct: number, tail?: string, color = tone(pct)) => (
       <Text>
@@ -478,7 +487,8 @@ export const register: Register = on => {
       )
     }
 
-    const buttons = (
+    // withRec: the desktop band leaves REC to the prompt footer (SessionMode below), where it takes no band width
+    const buttons = (withRec: boolean) => (
       <Box flexDirection="row" columnGap={1}>
         {over && handoff && (
           <Button
@@ -489,13 +499,9 @@ export const register: Register = on => {
           />
         )}
         {/* no args = /record toggles, reading its own state, so two quick presses both land */}
-        <Button
-          key="rec"
-          label={rec ? 'Stop REC' : 'REC'}
-          hotkey="r"
-          dimColor={!rec}
-          onPress={() => void $.command.run({ command: 'record' })}
-        />
+        {withRec && (
+          <Button key="rec" label={recLabel(rec)} hotkey="r" dimColor={!rec} onPress={() => void $.command.run({ command: 'record' })} />
+        )}
         {/* the explain button lives here; wytlumacz-mi's own row below only offers the recap */}
         {canExplain && (
           <Button
@@ -564,12 +570,12 @@ export const register: Register = on => {
                 {status}
                 <Box flexDirection="row" alignItems="center" columnGap={2}>
                   {lastTurn('')}
-                  {buttons}
+                  {buttons(false)}
                 </Box>
               </Box>
               <Box flexDirection="row" alignItems="center" columnGap={3}>
                 {ctxRing()}
-                {/* 5h only when the API reports it (a weekly-only plan such as Ultra never does) */}
+                {/* 5h only when the API reports it (Max 20x, now called Ultra, has a weekly limit alone) */}
                 {five && limitRing('5h', five, 'clock')}
                 {dz && dayRing(dz)}
                 {limitRing('7d', week, 'calendar')}
@@ -607,7 +613,7 @@ export const register: Register = on => {
           {dz && gauge('dziś', dz.todayPct, `↻${span(dz.nextDayAt - now)}`)}
           {week && gauge('week', week.percentUsed, reset(week))}
           {/* REC and Wytłumacz sit together as one pair, closer than the gauges */}
-          {buttons}
+          {buttons(true)}
         </Box>
         {below && <Box marginTop={1}>{below}</Box>}
       </Box>
@@ -619,16 +625,18 @@ export const register: Register = on => {
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     if (e.surface !== 'desktop') return next(e)
     // tick is read so the 30 s timer redraws the footer too (a read while drawing subscribes the instance)
-    const [, at, now] = await Promise.all([read($, tick), read($, cacheAt), $.clock.now()])
+    const [, at, now, rec] = await Promise.all([read($, tick), read($, cacheAt), $.clock.now(), read($, recOn)])
     const c = cacheDesktop(at, now)
     // variant B: the engine draws it as one more dim mode label, no colour
     if (FOOTER === 'modes') return next({ ...e, props: { ...e.props, modes: [...e.props.modes, c.text] } })
     // variant A: the engine's own labels (or nothing, with no modes) and the coloured countdown after them
     const below = await next(e)
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    // REC sits here on desktop, before the cache countdown: in the band it took a column of its own
     return (
       <Box flexDirection="row" alignItems="center" columnGap={1}>
         {below}
+        <Button key="rec" label={recLabel(rec)} hotkey="r" dimColor={!rec} onPress={() => void $.command.run({ command: 'record' })} />
         <Text color={c.color} dimColor={!c.color}>
           {c.text}
         </Text>

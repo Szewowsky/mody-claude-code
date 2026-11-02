@@ -129,9 +129,15 @@ async function readCli($: EngineInterface, force = false) {
   if (lock && now - lock < LOCK_FOR) return
   await $.store.set(LOCK_KEY, now).catch(() => undefined)
   try {
-    const init = { cwd: '/tmp', env: { [CHILD_ENV]: '1' }, timeoutMs: 60_000 }
-    // the desktop app's PATH may miss ~/.local/bin, where the installer puts claude
-    const home = await $.env.get('HOME').catch(() => undefined)
+    // a temp folder, not the project: --setting-sources project there finds no settings, so no plugins and no
+    // project hooks load in the child (TEMP on Windows; never HOME, whose .claude is the user's own settings)
+    const [tmp, temp, home] = await Promise.all([
+      $.env.get('TMPDIR').catch(() => undefined),
+      $.env.get('TEMP').catch(() => undefined),
+      // the desktop app's PATH may miss ~/.local/bin, where the installer puts claude
+      $.env.get('HOME').catch(() => undefined),
+    ])
+    const init = { cwd: tmp || temp || '/tmp', env: { [CHILD_ENV]: '1' }, timeoutMs: 60_000 }
     const r =
       (await $.process.run([...USAGE_ARGV], init).catch(() => null)) ??
       (home ? await $.process.run([`${home}/.local/bin/claude`, ...USAGE_ARGV.slice(1)], init).catch(() => null) : null)

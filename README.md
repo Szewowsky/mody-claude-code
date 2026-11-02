@@ -60,10 +60,10 @@ Dwa wiersze nad promptem: repo i branch, czas sesji, liczba promptów, koszt, os
 
 - **Licznik cache.** Claude Code na subskrypcji trzyma cache promptu przez godzinę. Gdy wygaśnie, kolejna wiadomość płaci pełną cenę za cały kontekst. 5 minut przed wystygnięciem dostajesz toast.
 - **Handoff.** Od 40% zajętego kontekstu pojawia się przycisk [Handoff] (w terminalu: `/pasek handoff`). Odpala dołączony skill, który zapisuje dokument przekazania w `.claude/handoff-YYYY-MM-DD_temat.md` w Twoim projekcie i daje gotowy prompt do wklejenia w nowej sesji. Próg zmienisz na czas sesji: `/pasek prog 60`, `/pasek prog off`, `/pasek prog reset`.
-- **REC.** Przycisk włącza tryb nagrywania z modu `record-mode` (jeśli jest zainstalowany). Kwoty na pasku zmieniają się wtedy na `[kwota]`.
+- **REC.** Przycisk włącza tryb nagrywania z modu `record-mode` (jeśli jest zainstalowany). Kwoty na pasku zmieniają się wtedy na `[kwota]`. W aplikacji desktopowej siedzi w stopce pod polem promptu, obok licznika cache (skrót `r`), żeby nie zajmował miejsca na pasku.
 - **Wytłumacz.** Przycisk z modu `wytlumacz-mi` (jeśli jest zainstalowany) siedzi obok REC.
 
-W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są repo, branch, czas, prompty i koszt, a po prawej ostatnia tura i przyciski. W drugim kontekst oraz limity jako pierścienie z ikoną (chip, zegar, słońce, kalendarz), procentem i dopiskiem (`33%  ctx · 331k/1M`, `32%  5h · reset za 4h 2m`). Kolor kontekstu idzie za progiem Handoff, a po jego przekroczeniu dochodzi `⚠ granica`. Pierścień 5h pokazuje się tylko wtedy, gdy API go zgłasza (plan z samym limitem tygodniowym, np. Ultra, go nie ma). Z modem `limit-dzienny` dochodzi pierścień `dziś` (`62%  dziś · nowy dzień za 5h 30m`), a w terminalu `dziś 62%`. Gdy API nie zgłosiło limitu tygodniowego, jego pierścień jest szary z napisem `7d · brak odczytu`. Po prawej stronie siedzi animowany pixel-art Clawd w czarnych okularach, w jednej z siedmiu scen:
+W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są repo, branch, czas, prompty i koszt, a po prawej ostatnia tura i przyciski. W drugim kontekst oraz limity jako pierścienie z ikoną (chip, zegar, słońce, kalendarz), procentem i dopiskiem (`33%  ctx · 331k/1M`, `32%  5h · reset za 4h 2m`). Kolor kontekstu idzie za progiem Handoff, a po jego przekroczeniu dochodzi `⚠ granica`. Pierścień 5h pokazuje się tylko wtedy, gdy API go zgłasza (Max 20x, dziś nazywany Ultra, ma już tylko limit tygodniowy). Z modem `limit-dzienny` dochodzi pierścień `dziś` (`62%  dziś · nowy dzień za 5h 30m`), a w terminalu `dziś 62%`. Gdy API nie zgłosiło limitu tygodniowego, jego pierścień jest szary z napisem `7d · brak odczytu`. Po prawej stronie siedzi animowany pixel-art Clawd w czarnych okularach, w jednej z siedmiu scen:
 
 | Scena | Co widać |
 | --- | --- |
@@ -93,6 +93,13 @@ Na planie z samym limitem tygodniowym nie ma okna 5h, które pilnowało tempa. T
 - **Godzina odczytu.** Pasek (`· odczyt 10:05`) i `/limit` pokazują, kiedy przyszedł ostatni odczyt i skąd. `/limit` czyta `/usage` od razu, bez czekania na 5 minut.
 
 Najlepiej działa z `pasek`, który rysuje pierścień `dziś`. Bez paska zostają toasty i `/limit`.
+
+**Dla kogo działa:**
+
+- **Każda subskrypcja z limitem tygodniowym** (Pro, Max 5x, Max 20x, dziś nazywany Ultra): mod tnie tydzień na dni. Pasek pokazuje 5h tylko tam, gdzie API je zgłasza; Max 20x ma już sam limit tygodniowy, więc u niego zostają `dziś` i `7d`.
+- **Klucz API zamiast subskrypcji:** limitów nie ma, więc mod nic nie rysuje, a `/limit` mówi „brak odczytu”. Nic się nie psuje.
+- **Odczyt w tle** potrzebuje komendy `claude` (w PATH albo w `~/.local/bin`) i czyta angielski tekst `Current week (all models): 27% used`. Gdy go nie znajdzie, mod liczy z samego nagłówka API, tylko z opóźnieniem do kolejnego zapytania sesji.
+- macOS, Linux i Windows (proces potomny startuje w `TMPDIR`/`TEMP`).
 
 ### record-mode
 
