@@ -1,6 +1,6 @@
 {
   "name": "limit-dzienny",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Dzieli tygodniowy limit na 7 dni: ile z dzisiejszej 1/7 już zjedzone, zapas z poprzednich dni i ostrzeżenia przy 80% i 100% dnia",
   "types": "./types/index.d.ts",
   "license": "MIT",

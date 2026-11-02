@@ -91,6 +91,7 @@ Na planie z samym limitem tygodniowym nie ma okna 5h, które pilnowało tempa. T
 - **Bez zapisanego stanu.** Wszystko wynika z % tygodnia z API i z zegara, więc liczy się też zużycie w claude.ai i na innych urządzeniach.
 - **Ostrzeżenia.** Toast przy 80% i 100% limitu dnia, raz na próg dziennie, także między sesjami.
 - **`/limit`** pokazuje dzień tygodnia limitu, ile zjedzone, zapas oraz kiedy nowy dzień i reset tygodnia.
+- **Godzina odczytu.** Pasek (`· odczyt 10:05`) i `/limit` pokazują, kiedy sesja ostatnio dostała % tygodnia z API. Zużycie z innych sesji i z claude.ai dochodzi przy kolejnym zapytaniu tej sesji, więc claude.ai bywa o punkt dalej.
 
 Najlepiej działa z `pasek`, który rysuje pierścień `dziś`. Bez paska zostają toasty i `/limit`.
 

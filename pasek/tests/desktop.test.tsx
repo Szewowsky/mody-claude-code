@@ -283,3 +283,13 @@ test('terminal: "dziś 62%" in the one-row band', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /dziś 62%/ } as never)).toBeDefined()
   await ui.unmount()
 })
+
+test('"dziś" ring with a reading time (limit-dzienny 0.2): "odczyt HH:MM" after the rest', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  base(on as never, weekly)
+  daily(on as never, { ...DAILY, readAt: NOW - 60_000 })
+  const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
+  const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
+  expect(svgs.find(s => /^limit dziś/.test(s.props.alt))!.props.alt).toMatch(/^limit dziś: 62% · nowy dzień za 5h 30m · odczyt \d{2}:\d{2}$/)
+  await ui.unmount()
+})

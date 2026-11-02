@@ -25,6 +25,12 @@ function span(ms: number) {
   return `${m}m`
 }
 
+// local HH:MM
+const clock = (ms: number) => {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 // a write redraws every reader even when the value is the same, so unchanged values are not written
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
@@ -37,13 +43,16 @@ function toastText(d: Day, lvl: number, now: number) {
   return `${Math.round(d.todayPct)}% limitu dnia - zostało ${pl(d.left)}% tygodnia na dziś, nowy dzień za ${nextIn}.`
 }
 
-async function refresh($: EngineInterface) {
-  const [u, now] = await Promise.all([$.session.usage().catch(() => null), $.clock.now()])
+// fresh: an API response just came (turn end, session.measure), so the reading's time moves to now;
+// the timer and /limit only recount the same reading against the clock and keep its time
+async function refresh($: EngineInterface, fresh = false) {
+  const [u, now, prev] = await Promise.all([$.session.usage().catch(() => null), $.clock.now(), read($, day)])
   // no usage reading at all: keep what we had (a failed call is not "no limit")
   if (!u) return
   const week = u.rateLimits.find(l => l.kind === 'seven_day')
-  const next = week ? dayOf(week.percentUsed, week.resetsAt ? Date.parse(week.resetsAt) : undefined, now) : null
-  if (!same(await read($, day), next)) await update($, day, () => next)
+  const counted = week ? dayOf(week.percentUsed, week.resetsAt ? Date.parse(week.resetsAt) : undefined, now) : null
+  const next = counted && { ...counted, readAt: fresh ? now : (prev?.readAt ?? now) }
+  if (!same(prev, next)) await update($, day, () => next)
   if (!next) return
 
   const key = dayKey(next)
@@ -81,6 +90,10 @@ function details(d: Day | null, now: number) {
   ]
   if (d.spare > 0) lines.push(`Zapas z poprzednich dni: ${pl(d.spare)}% tygodnia - schodzi przed dzisiejszą 1/7.`)
   lines.push(`Nowy dzień za ${span(d.nextDayAt - now)}, reset tygodnia za ${span(d.resetsAt - now)}.`)
+  if (d.readAt !== undefined)
+    lines.push(
+      `Odczyt z API: ${clock(d.readAt)}. Sesja dostaje % tygodnia w odpowiedzi API; zużycie z innych sesji i claude.ai dojdzie przy jej kolejnym zapytaniu.`,
+    )
   lines.push('Ostrzegam przy 80% i 100% limitu dnia, raz na próg.')
   return lines.join('\n')
 }
@@ -98,14 +111,14 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    await refresh($)
+    await refresh($, true)
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined) {
       restartTimer($)
-      await refresh($)
+      await refresh($, true)
     }
     return next(e)
   })

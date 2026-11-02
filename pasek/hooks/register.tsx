@@ -138,6 +138,12 @@ function span(ms: number) {
 // Polish number: one decimal, comma, no ",0"
 const pl = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '')
 
+// local HH:MM
+function hhmm(ms: number) {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 function secs(ms: number) {
   const s = Math.round(ms / 1000)
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
@@ -429,7 +435,9 @@ export const register: Register = on => {
     const dayRing = (d: DailyLimit) => {
       if (!Svg) return null
       const pct = Math.round(d.todayPct)
-      const tail = ` · nowy dzień za ${span(d.nextDayAt - now)}${d.spare > 0 ? ` · zapas ${pl(d.spare)}%` : ''}`
+      const tail =
+        ` · nowy dzień za ${span(d.nextDayAt - now)}${d.spare > 0 ? ` · zapas ${pl(d.spare)}%` : ''}` +
+        (d.readAt !== undefined ? ` · odczyt ${hhmm(d.readAt)}` : '')
       return (
         <Box flexDirection="row" alignItems="center" columnGap={1}>
           <Svg
