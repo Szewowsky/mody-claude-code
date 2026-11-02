@@ -63,7 +63,7 @@ Dwa wiersze nad promptem: repo i branch, czas sesji, liczba promptów, koszt, os
 - **REC.** Przycisk włącza tryb nagrywania z modu `record-mode` (jeśli jest zainstalowany). Kwoty na pasku zmieniają się wtedy na `[kwota]`. W aplikacji desktopowej siedzi w stopce pod polem promptu, obok licznika cache (skrót `r`), żeby nie zajmował miejsca na pasku.
 - **Wytłumacz.** Przycisk z modu `wytlumacz-mi` (jeśli jest zainstalowany) siedzi obok REC.
 
-W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są repo, branch, czas, prompty i koszt, a po prawej ostatnia tura i przyciski. W drugim kontekst oraz limity jako pierścienie z ikoną (chip, zegar, słońce, kalendarz), procentem i dopiskiem (`33%  ctx · 331k/1M`, `32%  5h · reset za 4h 2m`). Kolor kontekstu idzie za progiem Handoff, a po jego przekroczeniu dochodzi `⚠ granica`. Pierścień 5h pokazuje się tylko wtedy, gdy API go zgłasza (Max 20x, dziś nazywany Ultra, ma już tylko limit tygodniowy). Z modem `limit-dzienny` dochodzi pierścień `dziś` (`62%  dziś · nowy dzień za 5h 30m`), a w terminalu `dziś 62%`. Gdy API nie zgłosiło limitu tygodniowego, jego pierścień jest szary z napisem `7d · brak odczytu`. Po prawej stronie siedzi animowany pixel-art Clawd w czarnych okularach, w jednej z siedmiu scen:
+W aplikacji desktopowej pasek ma dwa wiersze i Clawda obok nich. W pierwszym są repo, branch, czas, prompty i koszt, a po prawej ostatnia tura i przyciski. W drugim kontekst oraz limity jako pierścienie z ikoną (chip, zegar, słońce, kalendarz), procentem i dopiskiem (`33%  ctx · 331k/1M`, `32%  5h · reset za 4h 2m`). Kolor kontekstu idzie za progiem Handoff, a po jego przekroczeniu dochodzi `⚠ granica`. Pierścień 5h pokazuje się tylko wtedy, gdy API go zgłasza (Max 20x, dziś nazywany Ultra, ma już tylko limit tygodniowy). Z modem `limit-dzienny` dochodzi pierścień `dziś` (`62%  dziś · ↻ 5h 30m · zapas 1,6%`, gdzie `↻` to czas do nowego dnia; pełny opis z godziną odczytu jest w podpowiedzi pierścienia i w `/limit`), a w terminalu `dziś 62%`. Gdy API nie zgłosiło limitu tygodniowego, jego pierścień jest szary z napisem `7d · brak odczytu`. Po prawej stronie siedzi animowany pixel-art Clawd w czarnych okularach, w jednej z siedmiu scen:
 
 | Scena | Co widać |
 | --- | --- |
@@ -90,7 +90,7 @@ Na planie z samym limitem tygodniowym nie ma okna 5h, które pilnowało tempa. T
 - **Ostrzeżenia.** Toast przy 80% i 100% limitu dnia, raz na próg dziennie, także między sesjami.
 - **`/limit`** pokazuje dzień tygodnia limitu, ile zjedzone, zapas oraz kiedy nowy dzień i reset tygodnia.
 - **Odczyt na bieżąco.** Co 5 minut mod uruchamia w tle `claude -p /usage` (bez zapytania do modelu i bez tokena: CLI loguje się samo, ok. 3 s) i bierze świeższy z dwóch odczytów: ten albo nagłówek odpowiedzi API sesji. Dzięki temu widać też zużycie z innych sesji i z claude.ai. Odczyt jest wspólny: przy wielu otwartych sesjach robi go jedna. Proces potomny startuje bez Twoich pluginów (`--setting-sources project`) i ze zmienną `LIMIT_DZIENNY_CHILD=1`, więc mod nie odpala się w nim drugi raz.
-- **Godzina odczytu.** Pasek (`· odczyt 10:05`) i `/limit` pokazują, kiedy przyszedł ostatni odczyt i skąd. `/limit` czyta `/usage` od razu, bez czekania na 5 minut.
+- **Godzina odczytu.** Podpowiedź pierścienia `dziś` (`· odczyt 10:05`) i `/limit` pokazują, kiedy przyszedł ostatni odczyt i skąd. `/limit` czyta `/usage` od razu, bez czekania na 5 minut.
 
 Najlepiej działa z `pasek`, który rysuje pierścień `dziś`. Bez paska zostają toasty i `/limit`.
 
