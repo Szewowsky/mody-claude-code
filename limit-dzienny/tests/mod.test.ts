@@ -130,7 +130,7 @@ test('/usage ahead of the header: its percent counts, /limit names the source', 
   expect(runs.length).toBe(1)
   expect(runs[0]!.argv).toEqual(['claude', '-p', '/usage', '--no-session-persistence', '--strict-mcp-config', '--setting-sources', 'project'])
   expect(runs[0]!.env).toEqual({ LIMIT_DZIENNY_CHILD: '1' })
-  expect(runs[0]!.cwd).toBe('/tmp')
+  expect(runs[0]!.cwd).toBe('/tmp') // no TMPDIR/TEMP in this test's env
 })
 
 test('the header ahead of an older /usage: the header counts', async ($, on) => {
@@ -195,4 +195,16 @@ test('header and /usage resets a minute apart: one day key, no repeated toast', 
   expect(toasts.length).toBe(1)
   await limit($ as never)
   expect(toasts.length).toBe(1)
+})
+
+test('the child runs in TMPDIR (macOS) or TEMP (Windows) when set', async ($, on) => {
+  const toasts: string[] = []
+  const runs: Run[] = []
+  base(on as never, () => 15, toasts, START + DAY + 3_600_000, () => ({ exitCode: 0, stdout: usageOut(20) }), runs, {
+    HOME: '/Users/x',
+    TMPDIR: '/var/folders/ab/T/',
+  })
+  mock.store(on as never)
+  await limit($ as never)
+  expect(runs[0]!.cwd).toBe('/var/folders/ab/T/')
 })

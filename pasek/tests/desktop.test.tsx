@@ -293,3 +293,19 @@ test('"dziś" ring with a reading time (limit-dzienny 0.2): "odczyt HH:MM" after
   expect(svgs.find(s => /^limit dziś/.test(s.props.alt))!.props.alt).toMatch(/^limit dziś: 62% · nowy dzień za 5h 30m · odczyt \d{2}:\d{2}$/)
   await ui.unmount()
 })
+
+test('7d follows limit-dzienny when its reading (claude /usage) is ahead of the header, and the header when it is not', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  base(on as never, weekly)
+  let used = 28
+  ;(on as (...a: unknown[]) => void)('state.get', { plugin: 'limit-dzienny', key: 'day' }, () => ({ value: { value: { ...DAILY, used }, version: 1 } }) as never)
+  const seven = async () => {
+    const ui = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'AbovePrompt', props } as never)
+    const svgs = (await ui.findAll({ type: 'Svg' } as never)) as never as SvgNode[]
+    await ui.unmount()
+    return svgs.find(s => /^limit 7d/.test(s.props.alt))!.props.alt
+  }
+  expect(await seven()).toMatch(/^limit 7d: 28% · reset za 6d 19h/)
+  used = 5
+  expect(await seven()).toMatch(/^limit 7d: 9%/)
+})

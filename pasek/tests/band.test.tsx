@@ -31,11 +31,9 @@ test('desktop: full band with ctx; terminal and IDE: one slim row with cache and
     if (surface === 'desktop') expect(cache).toBeUndefined()
     else expect(cache).toBeDefined()
     // terminal/IDE buttons need ctrl+x tab first, so there they are command hints instead
-    if (surface === 'desktop') expect(await ui.find({ key: 'rec' } as never)).toBeDefined()
-    else {
-      expect(await ui.find({ key: 'rec' } as never)).toBeUndefined()
-      expect(await ui.find({ type: 'Text', text: /\/record/ } as never)).toBeDefined()
-    }
+    // desktop: REC left the band for the prompt footer (SessionMode); terminal/IDE: a command hint
+    expect(await ui.find({ key: 'rec' } as never)).toBeUndefined()
+    if (surface !== 'desktop') expect(await ui.find({ type: 'Text', text: /\/record/ } as never)).toBeDefined()
     await ui.unmount()
   }
 })
@@ -65,7 +63,12 @@ test('REC on: red mark everywhere, masked cost and REC button on desktop, /recor
     // the cost lives only in the desktop band; terminal/IDE show none at all
     if (surface === 'desktop') {
       expect(await ui.find({ type: 'Text', text: /\[kwota\]/ } as never)).toBeDefined()
-      await ui.press({ key: 'rec' } as never)
+      // the REC button is in the footer now, labelled for the state it stops
+      const foot = await $.ui.mount({ plugin: 'pasek', surface, component: 'SessionMode', props: { modes: [] } } as never)
+      const btn = (await foot.find({ key: 'rec' } as never)) as never as { props: { label: string } }
+      expect(btn.props.label).toBe('● Stop REC')
+      await foot.press({ key: 'rec' } as never)
+      await foot.unmount()
     } else expect(await ui.find({ type: 'Text', text: /\/record off/ } as never)).toBeDefined()
     await ui.unmount()
   }
@@ -106,4 +109,29 @@ test('Wytłumacz button sits next to REC only with wytlumacz-mi loaded and runs 
     await ui.unmount()
   }
   expect(runs).toEqual(['wytlumacz'])
+})
+
+test('desktop footer: REC button before the cache countdown, dim when off; band row 1 has no REC', async ($, on) => {
+  on('session.usage', () => ({ value: USAGE }) as never)
+  on('session.cwd', () => ({ value: '/x/thumbforge' }) as never)
+  on('process.run', () => ({ value: { exitCode: 0, stdout: 'main', stderr: '' } }) as never)
+  on('clock.now', () => ({ value: 3600000 }) as never)
+  const runs: string[] = []
+  on('command.run', ($, e) => {
+    runs.push((e as never as { command: string }).command)
+    return { value: { text: '' } } as never
+  })
+  on('ui.render', ($, e) => { const { Box } = $.ui.resolve(e as never) as never as { Box: unknown }; return h(Box as never, {}) as never })
+  const foot = await $.ui.mount({ plugin: 'pasek', surface: 'desktop', component: 'SessionMode', props: { modes: [] } } as never)
+  const btn = (await foot.find({ key: 'rec' } as never)) as never as { props: { label: string; dimColor?: boolean } }
+  expect(btn.props.label).toBe('REC')
+  expect(btn.props.dimColor).toBe(true)
+  expect(await foot.find({ type: 'Text', text: /^cache/ } as never)).toBeDefined()
+  await foot.press({ key: 'rec' } as never)
+  await foot.unmount()
+  expect(runs).toEqual(['record'])
+  // terminal footer stays the engine's own
+  const term = await $.ui.mount({ plugin: 'pasek', surface: 'terminal', component: 'SessionMode', props: { modes: [] } } as never)
+  expect(await term.find({ key: 'rec' } as never)).toBeUndefined()
+  await term.unmount()
 })
