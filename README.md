@@ -89,7 +89,8 @@ Na planie z samym limitem tygodniowym nie ma okna 5h, które pilnowało tempa. T
 - **Bez zapisanego stanu.** Wszystko wynika z % tygodnia z API i z zegara, więc liczy się też zużycie w claude.ai i na innych urządzeniach.
 - **Ostrzeżenia.** Toast przy 80% i 100% limitu dnia, raz na próg dziennie, także między sesjami.
 - **`/limit`** pokazuje dzień tygodnia limitu, ile zjedzone, zapas oraz kiedy nowy dzień i reset tygodnia.
-- **Godzina odczytu.** Pasek (`· odczyt 10:05`) i `/limit` pokazują, kiedy sesja ostatnio dostała % tygodnia z API. Zużycie z innych sesji i z claude.ai dochodzi przy kolejnym zapytaniu tej sesji, więc claude.ai bywa o punkt dalej.
+- **Odczyt na bieżąco.** Co 5 minut mod uruchamia w tle `claude -p /usage` (bez zapytania do modelu i bez tokena: CLI loguje się samo, ok. 3 s) i bierze świeższy z dwóch odczytów: ten albo nagłówek odpowiedzi API sesji. Dzięki temu widać też zużycie z innych sesji i z claude.ai. Odczyt jest wspólny: przy wielu otwartych sesjach robi go jedna. Proces potomny startuje bez Twoich pluginów (`--setting-sources project`) i ze zmienną `LIMIT_DZIENNY_CHILD=1`, więc mod nie odpala się w nim drugi raz.
+- **Godzina odczytu.** Pasek (`· odczyt 10:05`) i `/limit` pokazują, kiedy przyszedł ostatni odczyt i skąd. `/limit` czyta `/usage` od razu, bez czekania na 5 minut.
 
 Najlepiej działa z `pasek`, który rysuje pierścień `dziś`. Bez paska zostają toasty i `/limit`.
 
