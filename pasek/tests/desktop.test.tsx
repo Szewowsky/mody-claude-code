@@ -240,7 +240,9 @@ test('limit-dzienny on, weekly-only plan: a "dziś" ring (sun) between ctx and 7
   expect(rings[0]!.props.alt).toBe('limit dziś: 62% · nowy dzień za 5h 30m')
   expect(rings[0]!.props.source).toMatch(/<circle cx="15" cy="15" r="3"\/>/) // sun icon
   expect(rings[0]!.props.source).toMatch(/stroke="#e0a400"/) // 62% = yellow
-  expect(await ui.find({ type: 'Text', text: /^ {2}dziś · nowy dzień za 5h 30m$/ } as never)).toBeDefined()
+  // the band text is short (↻), the alt keeps "nowy dzień za"
+  expect(await ui.find({ type: 'Text', text: /^ {2}dziś · ↻ 5h 30m$/ } as never)).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /nowy dzień|odczyt/ } as never)).toBeUndefined()
   await ui.unmount()
 })
 

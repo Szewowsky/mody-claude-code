@@ -444,9 +444,10 @@ export const register: Register = on => {
     const dayRing = (d: DailyLimit) => {
       if (!Svg) return null
       const pct = Math.round(d.todayPct)
+      const spare = d.spare > 0 ? ` · zapas ${pl(d.spare)}%` : ''
+      // the band text stays short so the ring row does not wrap; the alt (hover) keeps the words and the reading time
       const tail =
-        ` · nowy dzień za ${span(d.nextDayAt - now)}${d.spare > 0 ? ` · zapas ${pl(d.spare)}%` : ''}` +
-        (d.readAt !== undefined ? ` · odczyt ${hhmm(d.readAt)}` : '')
+        ` · nowy dzień za ${span(d.nextDayAt - now)}${spare}` + (d.readAt !== undefined ? ` · odczyt ${hhmm(d.readAt)}` : '')
       return (
         <Box flexDirection="row" alignItems="center" columnGap={1}>
           <Svg
@@ -457,7 +458,7 @@ export const register: Register = on => {
           />
           <Text>
             <Text bold>{`${pct}%`}</Text>
-            <Text dimColor>{`  dziś${tail}`}</Text>
+            <Text dimColor>{`  dziś · ↻ ${span(d.nextDayAt - now)}${spare}`}</Text>
           </Text>
         </Box>
       )
