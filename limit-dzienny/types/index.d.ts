@@ -15,6 +15,9 @@ export type Day = {
   // kiedy zaczyna się następny dzień (ms), ostatniego dnia = reset tygodnia
   nextDayAt: number
   resetsAt: number
+  // kiedy przyszła ostatnia odpowiedź API z % tygodnia (koniec tury albo przesunięcie limitu o punkt), ms;
+  // claude.ai liczy na bieżąco, sesja widzi zmianę dopiero w nagłówku swojej kolejnej odpowiedzi
+  readAt?: number
 }
 
 declare module 'claude-code' {

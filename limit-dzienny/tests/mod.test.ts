@@ -84,3 +84,17 @@ test('no weekly reading: /limit says so, no toast', async ($, on) => {
   expect((await limit($ as never)).text).toMatch(/Brak odczytu/)
   expect(toasts.length).toBe(0)
 })
+
+test('the reading time: /limit alone keeps it, a turn end (fresh API response) moves it', async ($, on) => {
+  const toasts: string[] = []
+  const clock = base(on as never, () => 20, toasts, START + 2 * DAY + 3_600_000)
+  mock.store(on as never)
+  const at = (t: string) => t.match(/Odczyt z API: (\d{2}:\d{2})/)?.[1]
+  const first = at((await limit($ as never)).text)
+  expect(first).toBeDefined()
+  await clock.advance(10 * 60_000)
+  expect(at((await limit($ as never)).text)).toBe(first)
+  await $.turn.complete({ durationMs: 1000 } as never).catch(() => undefined)
+  const moved = at((await limit($ as never)).text)
+  expect(moved !== first).toBe(true)
+})

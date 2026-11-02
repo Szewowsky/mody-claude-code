@@ -13,7 +13,8 @@ export type Scene = 'plaza' | 'kosmos' | 'nurek' | 'dzungla' | 'biuro' | 'gory' 
 export type SceneChoice = Scene | 'losowa'
 
 // co pasek czyta z moda limit-dzienny (tylko pola, które rysuje; pełny typ w limit-dzienny/types)
-export type DailyLimit = { day: number; todayPct: number; spare: number; nextDayAt: number }
+// readAt: godzina ostatniej odpowiedzi API z % tygodnia (od limit-dzienny 0.2.0, starsze go nie mają)
+export type DailyLimit = { day: number; todayPct: number; spare: number; nextDayAt: number; readAt?: number }
 
 declare module 'claude-code' {
   interface PluginState {
